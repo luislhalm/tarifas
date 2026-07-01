@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <title>APP Tarifas v2</title>
+
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --border: #d9dee5;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --primary: #2563eb;
+      --primary-dark: #1e40af;
+      --danger: #dc2626;
+      --success: #047857;
+      --warning: #b45309;
+      --soft-blue: #eaf1ff;
+      --soft-red: #fee2e2;
+      --soft-green: #d1fae5;
+      --shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      background: #0f172a;
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 700;
+    }
+
+    header .user-box {
+      font-size: 14px;
+      color: #d1d5db;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 24px auto;
+      padding: 0 20px 40px;
+    }
+
+    .hidden { display: none !important; }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .title-row h2 {
+      margin: 0 0 4px;
+      font-size: 24px;
+    }
+
+    .title-row p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .notice {
+      background: #fffbeb;
+      color: #78350f;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.45;
+      margin: 14px 0;
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(260px, 1fr));
+      gap: 20px;
+      margin-top: 18px;
+    }
+
+    .menu-button {
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      min-height: 170px;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+
+    .menu-button:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+      border-color: var(--primary);
+    }
+
+    .menu-button h3 {
+      margin: 0 0 12px;
+      font-size: 22px;
+    }
+
+    .menu-button p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 10px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    button:hover { filter: brightness(0.98); }
+    button.primary { background: var(--primary); color: white; }
+    button.primary:hover { background: var(--primary-dark); }
+    button.danger { background: var(--danger); color: white; }
+    button.success { background: var(--success); color: white; }
+    button.warning { background: var(--warning); color: white; }
+    button.ghost { background: transparent; border: 1px solid var(--border); }
+    button.small { padding: 7px 10px; font-size: 13px; border-radius: 7px; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(130px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 14px;
+      margin: 14px 0;
+    }
+
+    .form-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 13px;
+      color: #374151;
+      font-weight: 600;
+    }
+
+    input, select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px 11px;
+      font-size: 14px;
+      background: white;
+      color: var(--text);
+    }
+
+    input:focus, select:focus {
+      outline: 2px solid rgba(37, 99, 235, 0.22);
+      border-color: var(--primary);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #f9fafb;
+      color: #374151;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    tr:hover td { background: #f8fbff; }
+    tr.selected td { background: var(--soft-blue); }
+
+    td.price-cell { width: 150px; }
+    td.price-cell input { text-align: right; padding: 8px; }
+
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge.active { background: var(--soft-green); color: #065f46; }
+    .badge.cancelled { background: var(--soft-red); color: #991b1b; }
+
+    .empty-state {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      background: #fafafa;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.56);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 1000;
+    }
+
+    .modal {
+      background: white;
+      width: min(1120px, 96vw);
+      max-height: 90vh;
+      overflow: auto;
+      border-radius: 16px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
+      padding: 22px;
+    }
+
+    .modal.small-modal { width: min(560px, 96vw); }
+
+    .modal-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .modal-title h3 {
+      margin: 0 0 4px;
+      font-size: 21px;
+    }
+
+    .modal-title p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: #111827;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      z-index: 2000;
+      max-width: 520px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(140px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .summary-item {
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .summary-item strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .summary-item span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .muted { color: var(--muted); }
+    .text-right { text-align: right; }
+
+    .article-table-wrap {
+      max-height: 420px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .article-table-wrap table {
+      border: 0;
+      border-radius: 0;
+    }
+
+    pre {
+      background: #111827;
+      color: #e5e7eb;
+      border-radius: 12px;
+      padding: 14px;
+      overflow: auto;
+      min-height: 160px;
+      max-height: 280px;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    @media (max-width: 900px) {
+      .menu-grid { grid-template-columns: 1fr; }
+      .filters, .form-grid, .summary { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      header { flex-direction: column; align-items: flex-start; }
+      .filters, .form-grid, .summary { grid-template-columns: 1fr; }
+      th, td { font-size: 13px; padding: 9px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>APP Tarifas v2</h1>
+    <div class="user-box">
+      <span id="currentUserLabel">No autenticado</span>
+      <button id="logoutBtn" class="small ghost hidden" onclick="signOut()">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="loginView">
+      <div class="card">
+        <div class="title-row">
+          <div>
+            <h2>Acceso</h2>
+            <p>Aplicación alojada en GitHub Pages, integrada con Microsoft Entra ID, Graph y SharePoint.</p>
+          </div>
+        </div>
+
+        <div class="notice">
+          Versión v2 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
+        </div>
+
+        <div class="toolbar">
+          <button class="primary" onclick="signIn()">Iniciar sesión con Microsoft</button>
+          <button onclick="signInRedirect()">Iniciar con redirección</button>
+        </div>
+
+        <pre id="loginLog"></pre>
+      </div>
+    </section>
+
+    <section id="homeView" class="hidden">
+      <div class="card">
+        <div class="title-row">
+          <div>
+            <h2>Pantalla principal</h2>
+            <p>Seleccione el módulo de trabajo.</p>
+          </div>
+          <button onclick="bootstrapUserData()">Reintentar carga</button>
+        </div>
+
+        <div id="loadingNotice" class="notice hidden">
+          Cargando datos iniciales. Espere unos segundos antes de trabajar con plantillas o tarifas.
+        </div>
+
+        <div class="summary">
+          <div class="summary-item">
+            <strong id="articlesLoadedCount">0</strong>
+            <span>Artículos maestro</span>
+          </div>
+          <div class="summary-item">
+            <strong id="templatesLoadedCount">0</strong>
+            <span>Plantillas</span>
+          </div>
+          <div class="summary-item">
+            <strong id="userFolderStatus">Pendiente</strong>
+            <span>Carpeta usuario</span>
+          </div>
+          <div class="summary-item">
+            <strong id="siteStatus">Pendiente</strong>
+            <span>SharePoint</span>
+          </div>
+        </div>
+
+        <div class="menu-grid">
+          <button class="menu-button" onclick="openTemplatesModule()">
+            <h3>Gestionar plantillas</h3>
+            <p>Crear, modificar o anular plantillas de artículos con precios por defecto.</p>
+          </button>
+
+          <button class="menu-button" onclick="openTariffsModule()">
+            <h3>Gestionar tarifas</h3>
+            <p>Primer módulo preparado. La lógica de tarifas se activará después de cerrar plantillas.</p>
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Registro técnico</h2>
+        <pre id="appLog"></pre>
+      </div>
+    </section>
+
+    <section id="plantillasListView" class="hidden">
+      <div class="card">
+        <div class="title-row">
+          <div>
+            <h2>Gestión de plantillas</h2>
+            <p>Plantillas guardadas como JSON en SharePoint.</p>
+          </div>
+          <button class="ghost" onclick="showView('homeView')">Volver</button>
+        </div>
+
+        <div class="toolbar">
+          <button class="primary" onclick="createTemplate()">Crear nueva</button>
+          <button onclick="modifySelectedTemplate()">Modificar</button>
+          <button class="danger" onclick="cancelSelectedTemplate()">Anular</button>
+          <button onclick="loadTemplatesFromSharePoint()">Recargar desde SharePoint</button>
+        </div>
+
+        <div id="templatesTableWrap" style="margin-top: 16px;"></div>
+      </div>
+    </section>
+
+    <section id="templateEditView" class="hidden">
+      <div class="card">
+        <div class="title-row">
+          <div>
+            <h2 id="templateEditTitle">Editar plantilla</h2>
+            <p>Defina artículos y precios por defecto.</p>
+          </div>
+          <button class="ghost" onclick="showView('plantillasListView')">Volver al listado</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Descripción de plantilla</label>
+            <input id="templateDescription" type="text" placeholder="Ej.: Tarifa base horeca 2026" />
+          </div>
+          <div class="form-row">
+            <label>Estado</label>
+            <input id="templateStatus" type="text" disabled />
+          </div>
+          <div class="form-row">
+            <label>ID interno</label>
+            <input id="templateId" type="text" disabled />
+          </div>
+        </div>
+
+        <div id="loadingNotice" class="notice hidden">
+          Cargando datos iniciales. Espere unos segundos antes de trabajar con plantillas o tarifas.
+        </div>
+
+        <div class="summary">
+          <div class="summary-item">
+            <strong id="templateLineCount">0</strong>
+            <span>Artículos</span>
+          </div>
+          <div class="summary-item">
+            <strong id="templateAvgPrice">0,00 €</strong>
+            <span>Precio medio</span>
+          </div>
+          <div class="summary-item">
+            <strong id="templateMinPrice">0,00 €</strong>
+            <span>Precio mínimo</span>
+          </div>
+          <div class="summary-item">
+            <strong id="templateMaxPrice">0,00 €</strong>
+            <span>Precio máximo</span>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button class="primary" onclick="openArticleModal()">Añadir artículo</button>
+          <button onclick="enablePriceEditing()">Modificar precios</button>
+          <button class="warning" onclick="openPercentageModal()">Modificar precios %</button>
+          <button class="success" onclick="saveTemplateToSharePoint()">Guardar plantilla</button>
+        </div>
+
+        <div id="templateLinesWrap" style="margin-top: 16px;"></div>
+      </div>
+    </section>
+
+    <section id="tarifasListView" class="hidden">
+      <div class="card">
+        <div class="title-row">
+          <div>
+            <h2>Gestión de tarifas</h2>
+            <p>Preparado para la siguiente fase. Primero conviene estabilizar plantillas.</p>
+          </div>
+          <button class="ghost" onclick="showView('homeView')">Volver</button>
+        </div>
+
+        <div class="notice">
+          Esta versión v2 no guarda tarifas todavía. El siguiente paso será reutilizar la lógica de plantillas para guardar tarifas como JSON en la carpeta <strong>tarifas</strong>.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="articleModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-title">
+        <div>
+          <h3>Añadir artículos</h3>
+          <p>Filtre el maestro de artículos leído desde Articulos.xlsx.</p>
+        </div>
+        <button class="ghost" onclick="closeArticleModal()">Cerrar</button>
+      </div>
+
+      <div class="filters">
+        <div class="form-row">
+          <label>Marca</label>
+          <select id="filterMarca" onchange="renderArticleResults()"></select>
+        </div>
+        <div class="form-row">
+          <label>Familia</label>
+          <select id="filterFamilia" onchange="renderArticleResults()"></select>
+        </div>
+        <div class="form-row">
+          <label>Subfamilia</label>
+          <select id="filterSubfamilia" onchange="renderArticleResults()"></select>
+        </div>
+        <div class="form-row">
+          <label>Grupo</label>
+          <select id="filterGrupo" onchange="renderArticleResults()"></select>
+        </div>
+        <div class="form-row">
+          <label>Código</label>
+          <input id="filterCodigo" type="text" oninput="renderArticleResults()" placeholder="Código" />
+        </div>
+        <div class="form-row">
+          <label>Descripción</label>
+          <input id="filterDescripcionArticulo" type="text" oninput="renderArticleResults()" placeholder="Descripción" />
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="primary" onclick="addSelectedArticles()">Añadir seleccionados</button>
+        <button onclick="clearArticleFilters()">Limpiar filtros</button>
+      </div>
+
+      <div id="articleResultsWrap" class="article-table-wrap" style="margin-top: 14px;"></div>
+    </div>
+  </div>
+
+  <div id="percentageModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal small-modal">
+      <div class="modal-title">
+        <div>
+          <h3>Modificar precios por porcentaje</h3>
+          <p>Introduzca un porcentaje positivo o negativo.</p>
+        </div>
+        <button class="ghost" onclick="closePercentageModal()">Cerrar</button>
+      </div>
+
+      <div class="form-row">
+        <label>Porcentaje</label>
+        <input id="percentageValue" type="number" step="0.01" placeholder="Ej.: 5 o -3" />
+      </div>
+
+      <div class="notice">
+        La modificación se aplicará a todos los artículos de la plantilla actual.
+      </div>
+
+      <div class="toolbar">
+        <button class="warning" onclick="applyPercentageChange()">Aplicar porcentaje</button>
+        <button onclick="closePercentageModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script>
+    function loadScript(src) {
+      return new Promise(function(resolve, reject) {
+        var script = document.createElement("script");
+        script.src = src;
+        script.async = false;
+        script.onload = function() { resolve(src); };
+        script.onerror = function() { reject(new Error("No se pudo cargar " + src)); };
+        document.head.appendChild(script);
+      });
+    }
+
+    async function ensureMsalLoaded() {
+      if (window.msal && window.msal.PublicClientApplication) return true;
+
+      var sources = [
+        "https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js",
+        "https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js",
+        "https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"
+      ];
+
+      for (var i = 0; i < sources.length; i++) {
+        try {
+          await loadScript(sources[i]);
+          if (window.msal && window.msal.PublicClientApplication) {
+            loginLog("MSAL cargado desde: " + sources[i]);
+            return true;
+          }
+        } catch (error) {
+          loginLog("Fallo cargando MSAL desde: " + sources[i]);
+        }
+      }
+
+      return false;
+    }
+  </script>
+
+  <script>
+    const CONFIG = {
+      clientId: "b82973ee-356a-4e73-b366-50d192267164",
+      tenantId: "4af64d57-4be2-49ee-863f-1a7faee6e22b",
+      redirectUri: "https://luislhalm.github.io/tarifas/",
+      postLogoutRedirectUri: "https://luislhalm.github.io/tarifas/",
+      graphBase: "https://graph.microsoft.com/v1.0",
+      sharePointHost: "grupolopezguillensl.sharepoint.com",
+      sitePath: "/sites/APPtarifas",
+      masterFileName: "Articulos.xlsx",
+      articleTableName: "Articulos",
+      scopes: ["User.Read", "Sites.Read.All", "Files.Read", "Sites.ReadWrite.All"]
+    };
+
+    let msalInstance = null;
+    let activeAccount = null;
+
+    let graphState = {
+      site: null,
+      masterFile: null,
+      articles: [],
+      articleHeaders: []
+    };
+
+    let appState = {
+      selectedTemplateId: null,
+      editingTemplateId: null,
+      templates: [],
+      foldersReady: false,
+      currentArticleSelection: new Set()
+    };
+
+    function loginLog(message) {
+      const output = document.getElementById("loginLog");
+      if (!output) return;
+      const line = "[" + new Date().toLocaleTimeString("es-ES") + "] " + message;
+      output.textContent = line + "\n" + output.textContent;
+    }
+
+    function appLog(message) {
+      const output = document.getElementById("appLog");
+      if (!output) return;
+      const line = "[" + new Date().toLocaleTimeString("es-ES") + "] " + message;
+      output.textContent = line + "\n" + output.textContent;
+    }
+
+    function logError(title, error) {
+      const message = error?.message || String(error);
+      loginLog(title + ": " + message);
+      appLog(title + ": " + message);
+      console.error(title, error);
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.remove("hidden");
+      setTimeout(() => toast.classList.add("hidden"), 3600);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function money(value) {
+      const number = Number(value || 0);
+      return number.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+    }
+
+    function today() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function safeFileName(value) {
+      return String(value || "sin_nombre")
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\\/:*?"<>|#%{}~&]/g, "_")
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_")
+        .slice(0, 120);
+    }
+
+    function getCurrentUserFolderName() {
+      const account = msalInstance?.getActiveAccount?.() || activeAccount || msalInstance?.getAllAccounts?.()[0];
+      const raw = account?.username || account?.name || "usuario_sin_identificar";
+      return safeFileName(raw);
+    }
+
+    function templateFileName(template) {
+      const id = template.id || generateId("PL");
+      const description = safeFileName(template.descripcion || "plantilla");
+      return `${id}_${description}.json`;
+    }
+
+    function generateId(prefix) {
+      const existing = appState.templates
+        .map(t => t.id)
+        .filter(id => String(id).startsWith(prefix + "-"))
+        .map(id => Number(String(id).split("-")[1]))
+        .filter(n => !Number.isNaN(n));
+
+      const next = (existing.length ? Math.max(...existing) : 0) + 1;
+      return `${prefix}-${String(next).padStart(4, "0")}`;
+    }
+
+    function showView(viewId) {
+      ["loginView", "homeView", "plantillasListView", "templateEditView", "tarifasListView"]
+        .forEach(id => document.getElementById(id).classList.add("hidden"));
+
+      document.getElementById(viewId).classList.remove("hidden");
+
+      if (viewId === "plantillasListView") renderTemplatesTable();
+      if (viewId === "templateEditView") renderTemplateEdit();
+    }
+
+    function updateUserLabel() {
+      const label = document.getElementById("currentUserLabel");
+      const logoutBtn = document.getElementById("logoutBtn");
+
+      if (activeAccount) {
+        label.textContent = activeAccount.username || activeAccount.name || "Usuario autenticado";
+        logoutBtn.classList.remove("hidden");
+      } else {
+        label.textContent = "No autenticado";
+        logoutBtn.classList.add("hidden");
+      }
+    }
+
+    async function initMsal() {
+      const msalOk = await ensureMsalLoaded();
+      if (!msalOk) {
+        loginLog("No se ha podido cargar MSAL. Revisa bloqueo de CDN o red corporativa.");
+        return;
+      }
+
+      const msalConfig = {
+        auth: {
+          clientId: CONFIG.clientId,
+          authority: "https://login.microsoftonline.com/" + CONFIG.tenantId,
+          redirectUri: CONFIG.redirectUri,
+          postLogoutRedirectUri: CONFIG.postLogoutRedirectUri,
+          navigateToLoginRequestUrl: false
+        },
+        cache: {
+          cacheLocation: "sessionStorage",
+          storeAuthStateInCookie: false
+        }
+      };
+
+      msalInstance = new window.msal.PublicClientApplication(msalConfig);
+
+      try {
+        const redirectResponse = await msalInstance.handleRedirectPromise();
+        if (redirectResponse && redirectResponse.account) {
+          activeAccount = redirectResponse.account;
+          msalInstance.setActiveAccount(activeAccount);
+          updateUserLabel();
+          showView("homeView");
+          loginLog("Login por redirección correcto: " + activeAccount.username);
+          await bootstrapUserData();
+          return;
+        }
+      } catch (error) {
+        logError("Error procesando redirección", error);
+      }
+
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) {
+        activeAccount = accounts[0];
+        msalInstance.setActiveAccount(activeAccount);
+        updateUserLabel();
+        showView("homeView");
+        loginLog("Sesión detectada: " + activeAccount.username);
+        await bootstrapUserData();
+      } else {
+        updateUserLabel();
+        showView("loginView");
+      }
+
+      loginLog("APP Tarifas v2 inicializada.");
+    }
+
+    async function signIn() {
+      loginLog("Botón de inicio de sesión pulsado.");
+
+      try {
+        if (!msalInstance) await initMsal();
+        if (!msalInstance) throw new Error("MSAL no está inicializado.");
+
+        const result = await msalInstance.loginPopup({
+          scopes: CONFIG.scopes,
+          prompt: "select_account"
+        });
+
+        activeAccount = result.account;
+        msalInstance.setActiveAccount(activeAccount);
+        updateUserLabel();
+        showView("homeView");
+        loginLog("Login correcto: " + activeAccount.username);
+        await bootstrapUserData();
+      } catch (error) {
+        logError("Error en loginPopup", error);
+        showToast("Error de login. Prueba con redirección o revisa permisos.");
+      }
+    }
+
+    async function signInRedirect() {
+      loginLog("Login por redirección solicitado.");
+
+      try {
+        if (!msalInstance) await initMsal();
+        if (!msalInstance) throw new Error("MSAL no está inicializado.");
+
+        await msalInstance.loginRedirect({
+          scopes: CONFIG.scopes,
+          prompt: "select_account"
+        });
+      } catch (error) {
+        logError("Error en loginRedirect", error);
+      }
+    }
+
+    async function signOut() {
+      try {
+        if (!msalInstance) return;
+        const account = msalInstance.getActiveAccount() || activeAccount;
+        await msalInstance.logoutPopup({ account });
+        activeAccount = null;
+        updateUserLabel();
+        showView("loginView");
+      } catch (error) {
+        logError("Error al cerrar sesión", error);
+      }
+    }
+
+    async function getAccessToken() {
+      if (!msalInstance) throw new Error("MSAL no inicializado.");
+      const account = msalInstance.getActiveAccount() || activeAccount || msalInstance.getAllAccounts()[0];
+      if (!account) throw new Error("No hay usuario autenticado.");
+
+      try {
+        const result = await msalInstance.acquireTokenSilent({
+          scopes: CONFIG.scopes,
+          account
+        });
+        return result.accessToken;
+      } catch (error) {
+        const result = await msalInstance.acquireTokenPopup({
+          scopes: CONFIG.scopes
+        });
+        return result.accessToken;
+      }
+    }
+
+    async function graphRequest(method, path, payload, contentType = "application/json") {
+      const token = await getAccessToken();
+      const url = path.startsWith("https://") ? path : CONFIG.graphBase + path;
+
+      const headers = {
+        "Authorization": "Bearer " + token,
+        "Accept": "application/json"
+      };
+
+      let body = undefined;
+      if (payload !== undefined && payload !== null) {
+        if (contentType) headers["Content-Type"] = contentType;
+        body = contentType === "application/json" ? JSON.stringify(payload) : payload;
+      }
+
+      const response = await fetch(url, { method, headers, body });
+      const text = await response.text();
+
+      let parsed = null;
+      try { parsed = text ? JSON.parse(text) : null; }
+      catch { parsed = text; }
+
+      if (!response.ok) {
+        const message = parsed?.error?.message || response.statusText || "Error Graph";
+        const code = parsed?.error?.code || response.status;
+        throw new Error(code + ": " + message);
+      }
+
+      return parsed;
+    }
+
+    async function graphGet(path) { return graphRequest("GET", path); }
+    async function graphPost(path, payload) { return graphRequest("POST", path, payload); }
+    async function graphPutRaw(path, textPayload) { return graphRequest("PUT", path, textPayload, "application/json; charset=utf-8"); }
+
+    async function loadSite() {
+      const graphPath = "/sites/" + encodeURIComponent(CONFIG.sharePointHost) + ":" + CONFIG.sitePath;
+      graphState.site = await graphGet(graphPath);
+      document.getElementById("siteStatus").textContent = "OK";
+      appLog("Site cargado: " + graphState.site.displayName);
+      return graphState.site;
+    }
+
+    async function ensureSite() {
+      if (!graphState.site) await loadSite();
+      return graphState.site;
+    }
+
+    function encodeGraphPath(path) {
+      return String(path).split("/").map(segment => encodeURIComponent(segment)).join("/");
+    }
+
+    async function getDriveRoot() {
+      const site = await ensureSite();
+      return graphGet("/sites/" + encodeURIComponent(site.id) + "/drive/root");
+    }
+
+    async function getDriveItemByPath(path) {
+      const site = await ensureSite();
+      const normalized = String(path || "").replace(/^\/+/, "").replace(/\/+$/, "");
+      return graphGet("/sites/" + encodeURIComponent(site.id) + "/drive/root:/" + encodeGraphPath(normalized));
+    }
+
+    async function ensureFolderByPath(path) {
+      const site = await ensureSite();
+      const normalized = String(path || "").replace(/^\/+/, "").replace(/\/+$/, "");
+      if (!normalized) return getDriveRoot();
+
+      const parts = normalized.split("/").filter(Boolean);
+      let parent = await getDriveRoot();
+      let currentPath = "";
+
+      for (const part of parts) {
+        currentPath = currentPath ? currentPath + "/" + part : part;
+
+        try {
+          const existing = await getDriveItemByPath(currentPath);
+          if (!existing.folder) throw new Error("Existe un elemento que no es carpeta: " + currentPath);
+          parent = existing;
+        } catch (error) {
+          parent = await graphPost(
+            "/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(parent.id) + "/children",
+            {
+              name: part,
+              folder: {},
+              "@microsoft.graph.conflictBehavior": "fail"
+            }
+          );
+          appLog("Carpeta creada: " + currentPath);
+        }
+      }
+
+      return parent;
+    }
+
+    async function getUserFolders() {
+      const userFolder = getCurrentUserFolderName();
+      return {
+        root: userFolder,
+        plantillas: userFolder + "/plantillas",
+        tarifas: userFolder + "/tarifas"
+      };
+    }
+
+    async function ensureUserFolders() {
+      const folders = await getUserFolders();
+      await ensureFolderByPath(folders.plantillas);
+      await ensureFolderByPath(folders.tarifas);
+      appState.foldersReady = true;
+      document.getElementById("userFolderStatus").textContent = "OK";
+      appLog("Carpetas de usuario verificadas: " + folders.root);
+      return folders;
+    }
+
+    async function findMasterFile() {
+      const site = await ensureSite();
+
+      try {
+        graphState.masterFile = await graphGet("/sites/" + encodeURIComponent(site.id) + "/drive/root:/" + encodeURIComponent(CONFIG.masterFileName));
+        return graphState.masterFile;
+      } catch (errorByPath) {
+        const searchQuery = CONFIG.masterFileName.replaceAll("'", "''");
+        const searchResult = await graphGet("/sites/" + encodeURIComponent(site.id) + "/drive/root/search(q='" + encodeURIComponent(searchQuery) + "')");
+        const candidates = searchResult.value || [];
+        const exact = candidates.find(item => item.name === CONFIG.masterFileName) || candidates[0];
+        if (!exact) throw new Error("No se encontró " + CONFIG.masterFileName);
+        graphState.masterFile = exact;
+        return exact;
+      }
+    }
+
+    async function loadArticlesFromExcel() {
+      const site = await ensureSite();
+      if (!graphState.masterFile) await findMasterFile();
+
+      const file = graphState.masterFile;
+      const base = "/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(file.id) + "/workbook";
+
+      const tablesResponse = await graphGet(base + "/tables?$select=id,name,showHeaders,showTotals");
+      const tables = tablesResponse.value || [];
+      const table = tables.find(t => String(t.name).toLowerCase() === CONFIG.articleTableName.toLowerCase());
+
+      if (!table) throw new Error("No se encontró una tabla llamada " + CONFIG.articleTableName + " en Articulos.xlsx.");
+
+      const tablePath = base + "/tables('" + encodeURIComponent(table.name) + "')";
+      const columnsResponse = await graphGet(tablePath + "/columns");
+      const rowsResponse = await graphGet(tablePath + "/rows?$top=5000");
+
+      const headers = (columnsResponse.value || []).map(col => col.name);
+      const rows = rowsResponse.value || [];
+
+      graphState.articleHeaders = headers;
+      graphState.articles = rows.map(row => {
+        const values = row.values?.[0] || [];
+        const item = {};
+        headers.forEach((header, index) => item[header] = values[index]);
+        return normalizeArticle(item);
+      }).filter(a => a.codigo || a.descripcion);
+
+      document.getElementById("articlesLoadedCount").textContent = graphState.articles.length;
+      appLog("Artículos cargados desde Excel: " + graphState.articles.length);
+    }
+
+    function pickField(obj, candidates) {
+      const keys = Object.keys(obj || {});
+      for (const candidate of candidates) {
+        const found = keys.find(k => k.toLowerCase().replace(/\s+/g, "") === candidate.toLowerCase().replace(/\s+/g, ""));
+        if (found) return obj[found];
+      }
+      return "";
+    }
+
+    function normalizeArticle(raw) {
+      return {
+        raw,
+        codigo: pickField(raw, ["CodigoArticulo", "Codigo", "Código", "Articulo", "Artículo", "xarticulo_id"]),
+        descripcion: pickField(raw, ["DescripcionArticulo", "DescripciónArticulo", "Descripcion", "Descripción", "ArticuloDescripcion", "xdescripcion"]),
+        marca: pickField(raw, ["Marca", "xmarca", "MarcaDescripcion"]),
+        familia: pickField(raw, ["Familia", "xfamilia", "FamiliaDescripcion"]),
+        subfamilia: pickField(raw, ["Subfamilia", "SubFamilia", "xsubfamilia", "SubfamiliaDescripcion"]),
+        grupo: pickField(raw, ["Grupo", "xgrupo", "GrupoDescripcion"]),
+        precioBase: Number(String(pickField(raw, ["Precio", "PrecioBase", "Tarifa", "PVP"])).replace(",", ".")) || 0
+      };
+    }
+
+    function setLoadingState(isLoading, text) {
+      const notice = document.getElementById("loadingNotice");
+      if (!notice) return;
+
+      if (isLoading) {
+        notice.classList.remove("hidden");
+        notice.textContent = text || "Cargando datos iniciales. Espere unos segundos.";
+      } else {
+        notice.classList.add("hidden");
+      }
+    }
+
+    async function bootstrapUserData() {
+      try {
+        setLoadingState(true, "Cargando SharePoint, carpetas de usuario, maestro de artículos y plantillas...");
+        document.getElementById("siteStatus").textContent = "Cargando";
+        document.getElementById("userFolderStatus").textContent = "Cargando";
+        document.getElementById("articlesLoadedCount").textContent = "0";
+        document.getElementById("templatesLoadedCount").textContent = "0";
+
+        await ensureSite();
+        await ensureUserFolders();
+        await loadArticlesFromExcel();
+        await loadTemplatesFromSharePoint();
+
+        setLoadingState(false);
+        showToast("Datos iniciales cargados.");
+      } catch (error) {
+        setLoadingState(false);
+        logError("Error preparando datos iniciales", error);
+        showToast("Error preparando datos iniciales. Revisa el registro técnico y pulsa Reintentar carga.");
+      }
+    }
+
+    async function ensureArticlesLoadedBeforeWorking() {
+      if (graphState.articles.length > 0) return true;
+
+      try {
+        setLoadingState(true, "Cargando maestro de artículos...");
+        await loadArticlesFromExcel();
+        setLoadingState(false);
+        return graphState.articles.length > 0;
+      } catch (error) {
+        setLoadingState(false);
+        logError("Error cargando artículos", error);
+        showToast("No se ha podido cargar el maestro de artículos.");
+        return false;
+      }
+    }
+
+    async function listJsonFiles(path) {
+      try {
+        const folder = await getDriveItemByPath(path);
+        const site = await ensureSite();
+        const response = await graphGet("/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(folder.id) + "/children?$top=200");
+        return (response.value || []).filter(item => item.file && item.name.toLowerCase().endsWith(".json"));
+      } catch (error) {
+        appLog("No se pudieron listar JSON en " + path + ": " + error.message);
+        return [];
+      }
+    }
+
+    async function readDriveItemText(itemId) {
+      const site = await ensureSite();
+      const token = await getAccessToken();
+      const url = CONFIG.graphBase + "/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(itemId) + "/content";
+      const response = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
+      if (!response.ok) throw new Error("No se pudo leer contenido: " + response.status);
+      return response.text();
+    }
+
+    async function loadTemplatesFromSharePoint() {
+      try {
+        const folders = await ensureUserFolders();
+        const files = await listJsonFiles(folders.plantillas);
+        const templates = [];
+
+        for (const file of files) {
+          try {
+            const text = await readDriveItemText(file.id);
+            const parsed = JSON.parse(text);
+            parsed._driveItemId = file.id;
+            parsed._fileName = file.name;
+            templates.push(parsed);
+          } catch (error) {
+            appLog("Archivo JSON omitido por error: " + file.name + " · " + error.message);
+          }
+        }
+
+        templates.sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es"));
+        appState.templates = templates;
+        document.getElementById("templatesLoadedCount").textContent = templates.length;
+        renderTemplatesTable();
+        appLog("Plantillas cargadas: " + templates.length);
+      } catch (error) {
+        logError("Error cargando plantillas", error);
+      }
+    }
+
+    async function saveTemplateFile(template) {
+      const folders = await ensureUserFolders();
+      const fileName = templateFileName(template);
+      const path = folders.plantillas + "/" + fileName;
+      const payload = JSON.stringify(template, null, 2);
+      const site = await ensureSite();
+
+      const result = await graphPutRaw(
+        "/sites/" + encodeURIComponent(site.id) + "/drive/root:/" + encodeGraphPath(path) + ":/content",
+        payload
+      );
+
+      template._driveItemId = result.id;
+      template._fileName = result.name;
+      return result;
+    }
+
+    async function deleteOldTemplateFileIfRenamed(template) {
+      if (!template._driveItemId || !template._fileName) return;
+      const expected = templateFileName(template);
+      if (template._fileName === expected) return;
+
+      try {
+        const site = await ensureSite();
+        await graphRequest("DELETE", "/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(template._driveItemId));
+        appLog("Archivo anterior eliminado tras cambio de nombre: " + template._fileName);
+      } catch (error) {
+        appLog("No se pudo eliminar archivo anterior: " + template._fileName + " · " + error.message);
+      }
+    }
+
+    async function openTemplatesModule() {
+      showView("plantillasListView");
+
+      if (!appState.foldersReady || graphState.articles.length === 0) {
+        await bootstrapUserData();
+      } else {
+        await loadTemplatesFromSharePoint();
+      }
+    }
+
+    function openTariffsModule() {
+      showView("tarifasListView");
+    }
+
+    function renderTemplatesTable() {
+      const wrap = document.getElementById("templatesTableWrap");
+      const templates = appState.templates.filter(t => t.estado !== "anulada");
+
+      if (!templates.length) {
+        wrap.innerHTML = '<div class="empty-state">No hay plantillas activas. Cree la primera plantilla.</div>';
+        return;
+      }
+
+      wrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Descripción</th>
+              <th>Artículos</th>
+              <th>Fecha creación</th>
+              <th>Última modificación</th>
+              <th>Estado</th>
+              <th>Archivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${templates.map(t => `
+              <tr class="${appState.selectedTemplateId === t.id ? "selected" : ""}" onclick="selectTemplate('${escapeHtml(t.id)}')">
+                <td><input type="radio" name="selectedTemplate" ${appState.selectedTemplateId === t.id ? "checked" : ""} /></td>
+                <td>${escapeHtml(t.id)}</td>
+                <td>${escapeHtml(t.descripcion)}</td>
+                <td>${(t.articulos || []).length}</td>
+                <td>${escapeHtml(t.fechaCreacion || "")}</td>
+                <td>${escapeHtml(t.fechaModificacion || "")}</td>
+                <td><span class="badge ${t.estado === "activa" ? "active" : "cancelled"}">${escapeHtml(t.estado || "activa")}</span></td>
+                <td>${escapeHtml(t._fileName || "")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function selectTemplate(id) {
+      appState.selectedTemplateId = id;
+      renderTemplatesTable();
+    }
+
+    async function createTemplate() {
+      if (!appState.foldersReady) {
+        await bootstrapUserData();
+      }
+
+      const id = generateId("PL");
+      const template = {
+        tipo: "plantilla",
+        version: 1,
+        id,
+        descripcion: "",
+        usuarioPropietario: activeAccount?.username || "",
+        fechaCreacion: today(),
+        fechaModificacion: today(),
+        estado: "activa",
+        articulos: []
+      };
+
+      appState.templates.push(template);
+      appState.selectedTemplateId = id;
+      appState.editingTemplateId = id;
+      showView("templateEditView");
+    }
+
+    function modifySelectedTemplate() {
+      if (!appState.selectedTemplateId) {
+        showToast("Seleccione una plantilla antes de modificar.");
+        return;
+      }
+
+      const template = appState.templates.find(t => t.id === appState.selectedTemplateId);
+      if (!template) {
+        showToast("No se encontró la plantilla seleccionada.");
+        return;
+      }
+
+      if (template.estado === "anulada") {
+        showToast("La plantilla está anulada.");
+        return;
+      }
+
+      appState.editingTemplateId = template.id;
+      showView("templateEditView");
+    }
+
+    async function cancelSelectedTemplate() {
+      if (!appState.selectedTemplateId) {
+        showToast("Seleccione una plantilla antes de anular.");
+        return;
+      }
+
+      const template = appState.templates.find(t => t.id === appState.selectedTemplateId);
+      if (!template) return;
+
+      if (!confirm("¿Anular la plantilla seleccionada? No se eliminará físicamente.")) return;
+
+      template.estado = "anulada";
+      template.fechaModificacion = today();
+
+      try {
+        await saveTemplateFile(template);
+        await loadTemplatesFromSharePoint();
+        showToast("Plantilla anulada.");
+      } catch (error) {
+        logError("Error anulando plantilla", error);
+        showToast("Error anulando plantilla.");
+      }
+    }
+
+    function getEditingTemplate() {
+      return appState.templates.find(t => t.id === appState.editingTemplateId);
+    }
+
+    function renderTemplateEdit() {
+      const template = getEditingTemplate();
+      if (!template) {
+        showView("plantillasListView");
+        return;
+      }
+
+      document.getElementById("templateEditTitle").textContent =
+        template.descripcion ? "Plantilla: " + template.descripcion : "Nueva plantilla";
+
+      document.getElementById("templateDescription").value = template.descripcion || "";
+      document.getElementById("templateStatus").value = template.estado || "activa";
+      document.getElementById("templateId").value = template.id || "";
+
+      renderTemplateLines();
+      renderTemplateSummary();
+    }
+
+    function renderTemplateLines() {
+      const template = getEditingTemplate();
+      const wrap = document.getElementById("templateLinesWrap");
+      const lines = template?.articulos || [];
+
+      if (!lines.length) {
+        wrap.innerHTML = '<div class="empty-state">No hay artículos añadidos.</div>';
+        return;
+      }
+
+      wrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Código artículo</th>
+              <th>Descripción artículo</th>
+              <th>Marca</th>
+              <th>Familia</th>
+              <th class="text-right">Precio</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lines.map((linea, index) => `
+              <tr>
+                <td>${escapeHtml(linea.codigo)}</td>
+                <td>${escapeHtml(linea.descripcion)}</td>
+                <td>${escapeHtml(linea.marca || "")}</td>
+                <td>${escapeHtml(linea.familia || "")}</td>
+                <td class="price-cell">
+                  <input type="number" step="0.01" value="${Number(linea.precio || 0).toFixed(2)}"
+                    onchange="updateLinePrice(${index}, this.value)" />
+                </td>
+                <td>
+                  <button class="small danger" onclick="removeLine(${index})">Eliminar</button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderTemplateSummary() {
+      const template = getEditingTemplate();
+      const prices = (template?.articulos || []).map(l => Number(l.precio)).filter(p => !Number.isNaN(p));
+      const count = prices.length;
+      const avg = count ? prices.reduce((a, b) => a + b, 0) / count : 0;
+      const min = count ? Math.min(...prices) : 0;
+      const max = count ? Math.max(...prices) : 0;
+
+      document.getElementById("templateLineCount").textContent = count;
+      document.getElementById("templateAvgPrice").textContent = money(avg);
+      document.getElementById("templateMinPrice").textContent = money(min);
+      document.getElementById("templateMaxPrice").textContent = money(max);
+    }
+
+    function updateLinePrice(index, value) {
+      const template = getEditingTemplate();
+      if (!template) return;
+
+      const price = Number(value);
+      if (Number.isNaN(price) || price < 0) {
+        showToast("El precio debe ser numérico y no negativo.");
+        renderTemplateLines();
+        return;
+      }
+
+      template.articulos[index].precio = Math.round(price * 100) / 100;
+      template.fechaModificacion = today();
+      renderTemplateSummary();
+    }
+
+    function removeLine(index) {
+      const template = getEditingTemplate();
+      if (!template) return;
+      if (!confirm("¿Eliminar este artículo de la plantilla?")) return;
+
+      template.articulos.splice(index, 1);
+      template.fechaModificacion = today();
+      renderTemplateLines();
+      renderTemplateSummary();
+    }
+
+    function validateTemplate(template) {
+      if (!template.descripcion || !template.descripcion.trim()) {
+        return { valid: false, message: "La plantilla debe tener una descripción." };
+      }
+
+      const codes = new Set();
+      for (const line of template.articulos || []) {
+        if (!line.codigo) return { valid: false, message: "Hay una línea sin código de artículo." };
+        if (codes.has(line.codigo)) return { valid: false, message: "Artículo duplicado: " + line.codigo };
+        codes.add(line.codigo);
+
+        const price = Number(line.precio);
+        if (Number.isNaN(price) || price < 0) {
+          return { valid: false, message: "Precio inválido en artículo " + line.codigo };
+        }
+      }
+
+      return { valid: true };
+    }
+
+    async function saveTemplateToSharePoint() {
+      const template = getEditingTemplate();
+      if (!template) return;
+
+      const oldFileName = template._fileName;
+      template.descripcion = document.getElementById("templateDescription").value.trim();
+      template.fechaModificacion = today();
+
+      const validation = validateTemplate(template);
+      if (!validation.valid) {
+        showToast(validation.message);
+        return;
+      }
+
+      try {
+        if (oldFileName && oldFileName !== templateFileName(template)) {
+          await deleteOldTemplateFileIfRenamed(template);
+        }
+
+        await saveTemplateFile(template);
+        await loadTemplatesFromSharePoint();
+        appState.selectedTemplateId = template.id;
+        showToast("Plantilla guardada en SharePoint.");
+        showView("plantillasListView");
+      } catch (error) {
+        logError("Error guardando plantilla", error);
+        showToast("Error guardando plantilla en SharePoint.");
+      }
+    }
+
+    function enablePriceEditing() {
+      showToast("Los precios se editan directamente en la tabla.");
+    }
+
+    function openPercentageModal() {
+      const template = getEditingTemplate();
+      if (!template || !template.articulos.length) {
+        showToast("No hay artículos para modificar.");
+        return;
+      }
+      document.getElementById("percentageValue").value = "";
+      document.getElementById("percentageModalBackdrop").classList.remove("hidden");
+    }
+
+    function closePercentageModal() {
+      document.getElementById("percentageModalBackdrop").classList.add("hidden");
+    }
+
+    function applyPercentageChange() {
+      const template = getEditingTemplate();
+      if (!template) return;
+
+      const percentage = Number(document.getElementById("percentageValue").value);
+      if (Number.isNaN(percentage)) {
+        showToast("Introduzca un porcentaje válido.");
+        return;
+      }
+
+      if (!confirm("¿Aplicar una variación del " + percentage + "% a todos los artículos?")) return;
+
+      template.articulos = template.articulos.map(linea => ({
+        ...linea,
+        precio: Math.round((Number(linea.precio || 0) * (1 + percentage / 100)) * 100) / 100
+      }));
+
+      template.fechaModificacion = today();
+      closePercentageModal();
+      renderTemplateLines();
+      renderTemplateSummary();
+      showToast("Precios modificados.");
+    }
+
+    async function openArticleModal() {
+      if (!graphState.articles.length) {
+        const ok = await ensureArticlesLoadedBeforeWorking();
+        if (!ok) return;
+      }
+
+      appState.currentArticleSelection = new Set();
+      buildArticleFilterOptions();
+      clearArticleFilters(false);
+      renderArticleResults();
+      document.getElementById("articleModalBackdrop").classList.remove("hidden");
+    }
+
+    function closeArticleModal() {
+      appState.currentArticleSelection = new Set();
+      document.getElementById("articleModalBackdrop").classList.add("hidden");
+    }
+
+    function uniqueSorted(values) {
+      return [...new Set(values.filter(v => String(v || "").trim()))].sort((a, b) => String(a).localeCompare(String(b), "es"));
+    }
+
+    function fillSelect(id, values) {
+      const select = document.getElementById(id);
+      select.innerHTML = `<option value="">Todos</option>` +
+        uniqueSorted(values).map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+    }
+
+    function buildArticleFilterOptions() {
+      fillSelect("filterMarca", graphState.articles.map(a => a.marca));
+      fillSelect("filterFamilia", graphState.articles.map(a => a.familia));
+      fillSelect("filterSubfamilia", graphState.articles.map(a => a.subfamilia));
+      fillSelect("filterGrupo", graphState.articles.map(a => a.grupo));
+    }
+
+    function clearArticleFilters(render = true) {
+      ["filterMarca", "filterFamilia", "filterSubfamilia", "filterGrupo", "filterCodigo", "filterDescripcionArticulo"]
+        .forEach(id => document.getElementById(id).value = "");
+      appState.currentArticleSelection = new Set();
+      if (render) renderArticleResults();
+    }
+
+    function filteredArticles() {
+      const marca = document.getElementById("filterMarca").value;
+      const familia = document.getElementById("filterFamilia").value;
+      const subfamilia = document.getElementById("filterSubfamilia").value;
+      const grupo = document.getElementById("filterGrupo").value;
+      const codigo = document.getElementById("filterCodigo").value.toLowerCase();
+      const descripcion = document.getElementById("filterDescripcionArticulo").value.toLowerCase();
+
+      return graphState.articles.filter(article => {
+        return (!marca || String(article.marca) === marca)
+          && (!familia || String(article.familia) === familia)
+          && (!subfamilia || String(article.subfamilia) === subfamilia)
+          && (!grupo || String(article.grupo) === grupo)
+          && (!codigo || String(article.codigo || "").toLowerCase().includes(codigo))
+          && (!descripcion || String(article.descripcion || "").toLowerCase().includes(descripcion));
+      });
+    }
+
+    function renderArticleResults() {
+      const wrap = document.getElementById("articleResultsWrap");
+      const articles = filteredArticles().slice(0, 300);
+
+      if (!articles.length) {
+        wrap.innerHTML = '<div class="empty-state">No hay artículos que coincidan con los filtros.</div>';
+        return;
+      }
+
+      wrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th>Marca</th>
+              <th>Familia</th>
+              <th>Subfamilia</th>
+              <th>Grupo</th>
+              <th class="text-right">Precio base</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${articles.map(article => `
+              <tr>
+                <td>
+                  <input type="checkbox"
+                    ${appState.currentArticleSelection.has(String(article.codigo)) ? "checked" : ""}
+                    onchange="toggleArticleSelection('${escapeHtml(article.codigo)}', this.checked)" />
+                </td>
+                <td>${escapeHtml(article.codigo)}</td>
+                <td>${escapeHtml(article.descripcion)}</td>
+                <td>${escapeHtml(article.marca)}</td>
+                <td>${escapeHtml(article.familia)}</td>
+                <td>${escapeHtml(article.subfamilia)}</td>
+                <td>${escapeHtml(article.grupo)}</td>
+                <td class="text-right">${money(article.precioBase)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function toggleArticleSelection(codigo, checked) {
+      if (checked) appState.currentArticleSelection.add(String(codigo));
+      else appState.currentArticleSelection.delete(String(codigo));
+    }
+
+    function addSelectedArticles() {
+      const template = getEditingTemplate();
+      if (!template) return;
+
+      if (!appState.currentArticleSelection.size) {
+        showToast("Seleccione al menos un artículo.");
+        return;
+      }
+
+      const existingCodes = new Set((template.articulos || []).map(l => String(l.codigo)));
+      let added = 0;
+      let duplicated = 0;
+
+      appState.currentArticleSelection.forEach(codigo => {
+        const article = graphState.articles.find(a => String(a.codigo) === String(codigo));
+        if (!article) return;
+
+        if (existingCodes.has(String(article.codigo))) {
+          duplicated++;
+          return;
+        }
+
+        template.articulos.push({
+          codigo: article.codigo,
+          descripcion: article.descripcion,
+          marca: article.marca,
+          familia: article.familia,
+          subfamilia: article.subfamilia,
+          grupo: article.grupo,
+          precio: article.precioBase || 0
+        });
+
+        existingCodes.add(String(article.codigo));
+        added++;
+      });
+
+      template.fechaModificacion = today();
+      closeArticleModal();
+      renderTemplateLines();
+      renderTemplateSummary();
+
+      if (duplicated) showToast(`${added} artículo(s) añadido(s). ${duplicated} duplicado(s) omitido(s).`);
+      else showToast(`${added} artículo(s) añadido(s).`);
+    }
+
+    initMsal();
+  </script>
+</body>
+</html>
