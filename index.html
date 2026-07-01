@@ -200,7 +200,7 @@
       font-weight: 600;
     }
 
-    input, select {
+    input, select, textarea {
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 9px;
@@ -208,11 +208,42 @@
       font-size: 14px;
       background: white;
       color: var(--text);
+      font-family: inherit;
     }
 
-    input:focus, select:focus {
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+      line-height: 1.5;
+    }
+
+    input:focus, select:focus, textarea:focus {
       outline: 2px solid rgba(37, 99, 235, 0.22);
       border-color: var(--primary);
+    }
+
+    .toolbar-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding-right: 14px;
+      margin-right: 4px;
+      border-right: 1px solid var(--border);
+    }
+
+    .toolbar-group:last-child {
+      border-right: none;
+      padding-right: 0;
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 18px 0 8px;
     }
 
     table {
@@ -548,13 +579,20 @@
         </div>
 
         <div class="toolbar">
-          <button class="primary" onclick="openArticleModal()">Añadir artículo</button>
-          <button onclick="enablePriceEditing()">Modificar precios</button>
-          <button class="warning" onclick="openPercentageModal()">Modificar precios %</button>
-          <button class="success" onclick="saveTemplateToSharePoint()">Guardar plantilla</button>
+          <div class="toolbar-group">
+            <button class="primary" onclick="openArticleModal()">Añadir artículo</button>
+          </div>
+          <div class="toolbar-group">
+            <button onclick="openAbsoluteModal()">Modificar precios (importe fijo)</button>
+            <button class="warning" onclick="openPercentageModal()">Modificar precios (%)</button>
+          </div>
+          <div class="toolbar-group">
+            <button class="success" onclick="saveTemplateToSharePoint()">Guardar plantilla</button>
+          </div>
         </div>
 
-        <div id="templateLinesWrap" style="margin-top: 16px;"></div>
+        <div class="section-label">Artículos de la plantilla</div>
+        <div id="templateLinesWrap"></div>
       </div>
     </section>
 
@@ -595,6 +633,10 @@
             <input id="tarifaClienteNombre" type="text" placeholder="Nombre o código del cliente" />
           </div>
           <div class="form-row">
+            <label>Loc. envío</label>
+            <input id="tarifaLocEnvio" type="text" placeholder="Localidad / dirección de envío" />
+          </div>
+          <div class="form-row">
             <label>Descripción (opcional)</label>
             <input id="tarifaDescription" type="text" placeholder="Ej.: Tarifa 2026" />
           </div>
@@ -610,6 +652,11 @@
             <label>Plantilla de origen</label>
             <input id="tarifaOrigen" type="text" disabled />
           </div>
+        </div>
+
+        <div class="form-row" style="margin: 4px 0 14px;">
+          <label>Condiciones</label>
+          <textarea id="tarifaCondiciones" placeholder="Condiciones comerciales, forma de pago, plazos de entrega..."></textarea>
         </div>
 
         <div class="summary">
@@ -632,13 +679,24 @@
         </div>
 
         <div class="toolbar">
-          <button class="primary" onclick="openArticleModal()">Añadir artículo</button>
-          <button onclick="enablePriceEditing()">Modificar precios</button>
-          <button class="warning" onclick="openPercentageModal()">Modificar precios %</button>
-          <button class="success" onclick="saveTariffToSharePoint()">Guardar tarifa</button>
+          <div class="toolbar-group">
+            <button class="primary" onclick="openArticleModal()">Añadir artículo</button>
+          </div>
+          <div class="toolbar-group">
+            <button onclick="openAbsoluteModal()">Modificar precios (importe fijo)</button>
+            <button class="warning" onclick="openPercentageModal()">Modificar precios (%)</button>
+          </div>
+          <div class="toolbar-group">
+            <button onclick="generateTariffPdf()">Crear PDF</button>
+            <button onclick="generateTariffCsv()">Crear CSV</button>
+          </div>
+          <div class="toolbar-group">
+            <button class="success" onclick="saveTariffToSharePoint()">Guardar tarifa</button>
+          </div>
         </div>
 
-        <div id="tarifaLinesWrap" style="margin-top: 16px;"></div>
+        <div class="section-label">Artículos de la tarifa</div>
+        <div id="tarifaLinesWrap"></div>
       </div>
     </section>
   </main>
@@ -705,12 +763,38 @@
       </div>
 
       <div class="notice">
-        La modificación se aplicará a todos los artículos de la plantilla actual.
+        La modificación se aplicará a todos los artículos.
       </div>
 
       <div class="toolbar">
         <button class="warning" onclick="applyPercentageChange()">Aplicar porcentaje</button>
         <button onclick="closePercentageModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="absoluteModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal small-modal">
+      <div class="modal-title">
+        <div>
+          <h3>Modificar precios por importe fijo</h3>
+          <p>Introduzca un importe en euros, positivo o negativo.</p>
+        </div>
+        <button class="ghost" onclick="closeAbsoluteModal()">Cerrar</button>
+      </div>
+
+      <div class="form-row">
+        <label>Importe (€)</label>
+        <input id="absoluteValue" type="number" step="0.01" placeholder="Ej.: 1.50 o -0.75" />
+      </div>
+
+      <div class="notice">
+        El importe se sumará (o restará) al precio de todos los artículos. El precio nunca bajará de 0 €.
+      </div>
+
+      <div class="toolbar">
+        <button class="warning" onclick="applyAbsoluteChange()">Aplicar importe</button>
+        <button onclick="closeAbsoluteModal()">Cancelar</button>
       </div>
     </div>
   </div>
@@ -728,6 +812,11 @@
       <div class="form-row">
         <label>Cliente</label>
         <input id="newTariffCliente" type="text" placeholder="Nombre o código del cliente" />
+      </div>
+
+      <div class="form-row" style="margin-top: 12px;">
+        <label>Loc. envío</label>
+        <input id="newTariffLocEnvio" type="text" placeholder="Localidad / dirección de envío" />
       </div>
 
       <div class="form-row" style="margin-top: 12px;">
@@ -788,6 +877,58 @@
   </script>
 
   <script>
+    async function ensurePdfLibsLoaded() {
+      const jsPdfSources = [
+        "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+        "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+        "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"
+      ];
+
+      const autoTableSources = [
+        "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js",
+        "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js",
+        "https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"
+      ];
+
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        let loaded = false;
+        for (const src of jsPdfSources) {
+          try {
+            await loadScript(src);
+            if (window.jspdf && window.jspdf.jsPDF) {
+              appLog("jsPDF cargado desde: " + src);
+              loaded = true;
+              break;
+            }
+          } catch (error) {
+            appLog("Fallo cargando jsPDF desde: " + src);
+          }
+        }
+        if (!loaded) return false;
+      }
+
+      if (!window.jspdf.jsPDF.API.autoTable) {
+        let loaded = false;
+        for (const src of autoTableSources) {
+          try {
+            await loadScript(src);
+            if (window.jspdf.jsPDF.API.autoTable) {
+              appLog("jspdf-autotable cargado desde: " + src);
+              loaded = true;
+              break;
+            }
+          } catch (error) {
+            appLog("Fallo cargando jspdf-autotable desde: " + src);
+          }
+        }
+        if (!loaded) return false;
+      }
+
+      return true;
+    }
+  </script>
+
+  <script>
     const CONFIG = {
       clientId: "b82973ee-356a-4e73-b366-50d192267164",
       tenantId: "4af64d57-4be2-49ee-863f-1a7faee6e22b",
@@ -806,6 +947,7 @@
 
     let graphState = {
       site: null,
+      driveRoot: null,
       masterFile: null,
       articles: [],
       articleHeaders: []
@@ -1109,7 +1251,9 @@
 
     async function graphGet(path) { return graphRequest("GET", path); }
     async function graphPost(path, payload) { return graphRequest("POST", path, payload); }
-    async function graphPutRaw(path, textPayload) { return graphRequest("PUT", path, textPayload, "application/json; charset=utf-8"); }
+    async function graphPutRaw(path, textPayload, contentType = "application/json; charset=utf-8") {
+      return graphRequest("PUT", path, textPayload, contentType);
+    }
 
     async function loadSite() {
       const graphPath = "/sites/" + encodeURIComponent(CONFIG.sharePointHost) + ":" + CONFIG.sitePath;
@@ -1129,8 +1273,10 @@
     }
 
     async function getDriveRoot() {
+      if (graphState.driveRoot) return graphState.driveRoot;
       const site = await ensureSite();
-      return graphGet("/sites/" + encodeURIComponent(site.id) + "/drive/root");
+      graphState.driveRoot = await graphGet("/sites/" + encodeURIComponent(site.id) + "/drive/root");
+      return graphState.driveRoot;
     }
 
     async function getDriveItemByPath(path) {
@@ -1182,8 +1328,18 @@
 
     async function ensureUserFolders() {
       const folders = await getUserFolders();
-      await ensureFolderByPath(folders.plantillas);
-      await ensureFolderByPath(folders.tarifas);
+
+      if (appState.foldersReady) return folders;
+
+      // Se crea primero la carpeta raíz del usuario para evitar que dos llamadas
+      // paralelas intenten crearla a la vez (condición de carrera en Graph).
+      await ensureFolderByPath(folders.root);
+
+      await Promise.all([
+        ensureFolderByPath(folders.plantillas),
+        ensureFolderByPath(folders.tarifas)
+      ]);
+
       appState.foldersReady = true;
       document.getElementById("userFolderStatus").textContent = "OK";
       appLog("Carpetas de usuario verificadas: " + folders.root);
@@ -1221,8 +1377,10 @@
       if (!table) throw new Error("No se encontró una tabla llamada " + CONFIG.articleTableName + " en Articulos.xlsx.");
 
       const tablePath = base + "/tables('" + encodeURIComponent(table.name) + "')";
-      const columnsResponse = await graphGet(tablePath + "/columns");
-      const rowsResponse = await graphGet(tablePath + "/rows?$top=5000");
+      const [columnsResponse, rowsResponse] = await Promise.all([
+        graphGet(tablePath + "/columns"),
+        graphGet(tablePath + "/rows?$top=5000")
+      ]);
 
       const headers = (columnsResponse.value || []).map(col => col.name);
       const rows = rowsResponse.value || [];
@@ -1377,9 +1535,14 @@
 
         await ensureSite();
         await ensureUserFolders();
-        await loadArticlesFromExcel();
-        await loadTemplatesFromSharePoint();
-        await loadTariffsFromSharePoint();
+
+        // Artículos, plantillas y tarifas son independientes entre sí:
+        // se cargan en paralelo en lugar de uno detrás de otro.
+        await Promise.all([
+          loadArticlesFromExcel(),
+          loadTemplatesFromSharePoint(),
+          loadTariffsFromSharePoint()
+        ]);
 
         setLoadingState(false);
         showToast("Datos iniciales cargados.");
@@ -1431,20 +1594,21 @@
       try {
         const folders = await ensureUserFolders();
         const files = await listJsonFiles(folders.plantillas);
-        const templates = [];
 
-        for (const file of files) {
+        const results = await Promise.all(files.map(async file => {
           try {
             const text = await readDriveItemText(file.id);
             const parsed = JSON.parse(text);
             parsed._driveItemId = file.id;
             parsed._fileName = file.name;
-            templates.push(parsed);
+            return parsed;
           } catch (error) {
             appLog("Archivo JSON omitido por error: " + file.name + " · " + error.message);
+            return null;
           }
-        }
+        }));
 
+        const templates = results.filter(Boolean);
         templates.sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es"));
         appState.templates = templates;
         document.getElementById("templatesLoadedCount").textContent = templates.length;
@@ -1490,20 +1654,21 @@
       try {
         const folders = await ensureUserFolders();
         const files = await listJsonFiles(folders.tarifas);
-        const tarifas = [];
 
-        for (const file of files) {
+        const results = await Promise.all(files.map(async file => {
           try {
             const text = await readDriveItemText(file.id);
             const parsed = JSON.parse(text);
             parsed._driveItemId = file.id;
             parsed._fileName = file.name;
-            tarifas.push(parsed);
+            return parsed;
           } catch (error) {
             appLog("Archivo JSON de tarifa omitido por error: " + file.name + " · " + error.message);
+            return null;
           }
-        }
+        }));
 
+        const tarifas = results.filter(Boolean);
         tarifas.sort((a, b) => String(a.clienteNombre || "").localeCompare(String(b.clienteNombre || ""), "es"));
         appState.tarifas = tarifas;
         renderTariffsTable();
@@ -1699,6 +1864,7 @@
               <th></th>
               <th>ID</th>
               <th>Cliente</th>
+              <th>Loc. envío</th>
               <th>Descripción</th>
               <th>Artículos</th>
               <th>Origen</th>
@@ -1713,6 +1879,7 @@
                 <td><input type="radio" name="selectedTariff" ${appState.selectedTariffId === t.id ? "checked" : ""} /></td>
                 <td>${escapeHtml(t.id)}</td>
                 <td>${escapeHtml(t.clienteNombre || "")}</td>
+                <td>${escapeHtml(t.locEnvio || "")}</td>
                 <td>${escapeHtml(t.descripcion || "")}</td>
                 <td>${(t.articulos || []).length}</td>
                 <td>${escapeHtml(t.plantillaOrigenId || "—")}</td>
@@ -1737,6 +1904,7 @@
       }
 
       document.getElementById("newTariffCliente").value = "";
+      document.getElementById("newTariffLocEnvio").value = "";
 
       const select = document.getElementById("newTariffTemplateOrigin");
       const activeTemplates = appState.templates.filter(t => t.estado !== "anulada");
@@ -1752,6 +1920,7 @@
 
     function confirmCreateTariff() {
       const clienteNombre = document.getElementById("newTariffCliente").value.trim();
+      const locEnvio = document.getElementById("newTariffLocEnvio").value.trim();
       const templateOriginId = document.getElementById("newTariffTemplateOrigin").value;
 
       if (!clienteNombre) {
@@ -1770,6 +1939,8 @@
         id,
         descripcion: originTemplate ? (originTemplate.descripcion || "") : "",
         clienteNombre,
+        locEnvio,
+        condiciones: "",
         usuarioPropietario: activeAccount?.username || "",
         fechaCreacion: today(),
         fechaModificacion: today(),
@@ -1868,10 +2039,12 @@
         tariff.clienteNombre ? "Tarifa: " + tariff.clienteNombre : "Nueva tarifa";
 
       document.getElementById("tarifaClienteNombre").value = tariff.clienteNombre || "";
+      document.getElementById("tarifaLocEnvio").value = tariff.locEnvio || "";
       document.getElementById("tarifaDescription").value = tariff.descripcion || "";
       document.getElementById("tarifaStatus").value = tariff.estado || "activa";
       document.getElementById("tarifaId").value = tariff.id || "";
       document.getElementById("tarifaOrigen").value = tariff.plantillaOrigenId || "Sin plantilla de origen";
+      document.getElementById("tarifaCondiciones").value = tariff.condiciones || "";
 
       renderTariffLines();
       renderTariffSummary();
@@ -1914,7 +2087,9 @@
 
       const oldFileName = tariff._fileName;
       tariff.clienteNombre = document.getElementById("tarifaClienteNombre").value.trim();
+      tariff.locEnvio = document.getElementById("tarifaLocEnvio").value.trim();
       tariff.descripcion = document.getElementById("tarifaDescription").value.trim();
+      tariff.condiciones = document.getElementById("tarifaCondiciones").value;
       tariff.fechaModificacion = today();
 
       const validation = validateTariff(tariff);
@@ -2103,8 +2278,41 @@
       }
     }
 
-    function enablePriceEditing() {
-      showToast("Los precios se editan directamente en la tabla.");
+    function openAbsoluteModal() {
+      const entity = getCurrentEditingEntity();
+      if (!entity || !entity.articulos.length) {
+        showToast("No hay artículos para modificar.");
+        return;
+      }
+      document.getElementById("absoluteValue").value = "";
+      document.getElementById("absoluteModalBackdrop").classList.remove("hidden");
+    }
+
+    function closeAbsoluteModal() {
+      document.getElementById("absoluteModalBackdrop").classList.add("hidden");
+    }
+
+    function applyAbsoluteChange() {
+      const entity = getCurrentEditingEntity();
+      if (!entity) return;
+
+      const amount = Number(document.getElementById("absoluteValue").value);
+      if (Number.isNaN(amount)) {
+        showToast("Introduzca un importe válido.");
+        return;
+      }
+
+      if (!confirm("¿Aplicar " + amount + " € a todos los artículos?")) return;
+
+      entity.articulos = entity.articulos.map(linea => ({
+        ...linea,
+        precio: Math.max(0, Math.round((Number(linea.precio || 0) + amount) * 100) / 100)
+      }));
+
+      entity.fechaModificacion = today();
+      closeAbsoluteModal();
+      refreshCurrentEditView();
+      showToast("Precios modificados.");
     }
 
     function openPercentageModal() {
@@ -2142,6 +2350,123 @@
       closePercentageModal();
       refreshCurrentEditView();
       showToast("Precios modificados.");
+    }
+
+    // --- Exportación de tarifas (CSV / PDF) ---
+    // Por ahora ambos ficheros se guardan directamente en la carpeta de tarifas de SharePoint,
+    // junto al JSON de la tarifa. Más adelante se podrá añadir descarga directa al dispositivo.
+
+    function formatCsvPrice(value) {
+      return Number(value || 0).toFixed(2).replace(".", ",");
+    }
+
+    function formatCsvCode(codigo) {
+      return String(codigo ?? "").trim().padStart(6, "0");
+    }
+
+    async function generateTariffCsv() {
+      const tariff = getEditingTariff();
+      if (!tariff) return;
+
+      if (!tariff.articulos.length) {
+        showToast("No hay artículos en la tarifa para exportar.");
+        return;
+      }
+
+      const lines = tariff.articulos.map(linea => {
+        return [formatCsvCode(linea.codigo), formatCsvPrice(linea.precio), "0"].join(";");
+      });
+
+      const content = lines.join("\r\n") + "\r\n";
+
+      try {
+        const fileName = tariffFileName(tariff).replace(/\.json$/i, ".csv");
+        const folders = await ensureUserFolders();
+        const path = folders.tarifas + "/" + fileName;
+        const site = await ensureSite();
+
+        await graphPutRaw(
+          "/sites/" + encodeURIComponent(site.id) + "/drive/root:/" + encodeGraphPath(path) + ":/content",
+          content,
+          "text/csv; charset=utf-8"
+        );
+
+        appLog("CSV de tarifa generado: " + fileName);
+        showToast("CSV guardado en SharePoint: " + fileName);
+      } catch (error) {
+        logError("Error generando CSV de tarifa", error);
+        showToast("Error generando el CSV.");
+      }
+    }
+
+    async function generateTariffPdf() {
+      const tariff = getEditingTariff();
+      if (!tariff) return;
+
+      if (!tariff.articulos.length) {
+        showToast("No hay artículos en la tarifa para exportar.");
+        return;
+      }
+
+      const librariesReady = await ensurePdfLibsLoaded();
+      if (!librariesReady) {
+        showToast("No se pudieron cargar las librerías de PDF. Revise el registro técnico.");
+        return;
+      }
+
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.setFontSize(16);
+        doc.text("Tarifa comercial", 14, 18);
+
+        doc.setFontSize(10);
+        let y = 28;
+
+        doc.text("Cliente: " + (tariff.clienteNombre || ""), 14, y); y += 6;
+        if (tariff.locEnvio) { doc.text("Loc. envío: " + tariff.locEnvio, 14, y); y += 6; }
+        if (tariff.descripcion) { doc.text("Descripción: " + tariff.descripcion, 14, y); y += 6; }
+        doc.text("Fecha: " + today(), 14, y); y += 6;
+
+        if (tariff.condiciones && tariff.condiciones.trim()) {
+          y += 2;
+          doc.setFont(undefined, "bold");
+          doc.text("Condiciones", 14, y);
+          y += 5;
+          doc.setFont(undefined, "normal");
+          const condicionesLines = doc.splitTextToSize(tariff.condiciones.trim(), 180);
+          doc.text(condicionesLines, 14, y);
+          y += condicionesLines.length * 5 + 4;
+        }
+
+        doc.autoTable({
+          startY: y + 2,
+          head: [["Código", "Descripción", "Precio"]],
+          body: tariff.articulos.map(linea => [linea.codigo, linea.descripcion, money(linea.precio)]),
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [15, 23, 42] }
+        });
+
+        const blob = doc.output("blob");
+        const fileName = tariffFileName(tariff).replace(/\.json$/i, ".pdf");
+        const folders = await ensureUserFolders();
+        const path = folders.tarifas + "/" + fileName;
+        const site = await ensureSite();
+
+        await graphRequest(
+          "PUT",
+          "/sites/" + encodeURIComponent(site.id) + "/drive/root:/" + encodeGraphPath(path) + ":/content",
+          blob,
+          "application/pdf"
+        );
+
+        appLog("PDF de tarifa generado: " + fileName);
+        showToast("PDF guardado en SharePoint: " + fileName);
+      } catch (error) {
+        logError("Error generando PDF de tarifa", error);
+        showToast("Error generando el PDF.");
+      }
     }
 
     async function openArticleModal() {
