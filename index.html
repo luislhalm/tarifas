@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
-  <title>APP Tarifas v4</title>
+  <title>APP Tarifas v5</title>
 
   <style>
     :root {
@@ -391,7 +391,7 @@
 
 <body>
   <header>
-    <h1>APP Tarifas v4</h1>
+    <h1>APP Tarifas v5</h1>
     <div class="user-box">
       <span id="currentUserLabel">No autenticado</span>
       <button id="logoutBtn" class="small ghost hidden" onclick="signOut()">Cerrar sesión</button>
@@ -409,12 +409,13 @@
         </div>
 
         <div class="notice">
-          Versión v4 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
+          Versión v5 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
+          En móvil, abra esta página directamente en Safari, Edge o Chrome. No la abra desde una previsualización embebida.
         </div>
 
         <div class="toolbar">
-          <button class="primary" onclick="signIn()">Iniciar sesión con Microsoft</button>
-          <button onclick="signInRedirect()">Iniciar con redirección</button>
+          <button class="primary" onclick="signInRedirect()">Iniciar sesión con Microsoft</button>
+          <button class="ghost" onclick="signInPopupDiagnostic()">Probar popup solo escritorio</button>
         </div>
 
         <pre id="loginLog"></pre>
@@ -568,7 +569,7 @@
         </div>
 
         <div class="notice">
-          Esta versión v4 no guarda tarifas todavía. El siguiente paso será reutilizar la lógica de plantillas para guardar tarifas como JSON en la carpeta <strong>tarifas</strong>.
+          Esta versión v5 no guarda tarifas todavía. El siguiente paso será reutilizar la lógica de plantillas para guardar tarifas como JSON en la carpeta <strong>tarifas</strong>.
         </div>
       </div>
     </section>
@@ -870,11 +871,15 @@
         showView("loginView");
       }
 
-      loginLog("APP Tarifas v4 inicializada.");
+      loginLog("APP Tarifas v5 inicializada.");
     }
 
     async function signIn() {
-      loginLog("Botón de inicio de sesión pulsado.");
+      return signInRedirect();
+    }
+
+    async function signInPopupDiagnostic() {
+      loginLog("Login popup solicitado manualmente.");
 
       try {
         if (!msalInstance) await initMsal();
@@ -889,11 +894,11 @@
         msalInstance.setActiveAccount(activeAccount);
         updateUserLabel();
         showView("homeView");
-        loginLog("Login correcto: " + activeAccount.username);
+        loginLog("Login popup correcto: " + activeAccount.username);
         await bootstrapUserData();
       } catch (error) {
         logError("Error en loginPopup", error);
-        showToast("Error de login. Prueba con redirección o revisa permisos.");
+        showToast("El popup está bloqueado. Use el botón principal de login.");
       }
     }
 
@@ -901,15 +906,28 @@
       loginLog("Login por redirección solicitado.");
 
       try {
+        if (window.opener && window.opener !== window) {
+          loginLog("La app parece estar abierta dentro de una ventana emergente. Abra la URL directamente en el navegador.");
+          showToast("Abra la web directamente en Safari/Edge/Chrome, no dentro de una ventana emergente.");
+          return;
+        }
+
         if (!msalInstance) await initMsal();
         if (!msalInstance) throw new Error("MSAL no está inicializado.");
 
         await msalInstance.loginRedirect({
           scopes: CONFIG.scopes,
-          prompt: "select_account"
+          prompt: "select_account",
+          redirectStartPage: CONFIG.redirectUri
         });
       } catch (error) {
         logError("Error en loginRedirect", error);
+
+        if (String(error?.errorCode || "").includes("block_nested_popups") || String(error?.message || "").includes("block_nested_popups")) {
+          showToast("MSAL detecta popup anidado. Abra la URL directamente en el navegador y no desde vista previa.");
+        } else {
+          showToast("Error iniciando sesión. Revise el registro técnico.");
+        }
       }
     }
 
