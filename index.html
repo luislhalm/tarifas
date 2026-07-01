@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
-  <title>APP Tarifas v2</title>
+  <title>APP Tarifas v4</title>
 
   <style>
     :root {
@@ -391,7 +391,7 @@
 
 <body>
   <header>
-    <h1>APP Tarifas v2</h1>
+    <h1>APP Tarifas v4</h1>
     <div class="user-box">
       <span id="currentUserLabel">No autenticado</span>
       <button id="logoutBtn" class="small ghost hidden" onclick="signOut()">Cerrar sesión</button>
@@ -409,7 +409,7 @@
         </div>
 
         <div class="notice">
-          Versión v2 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
+          Versión v4 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
         </div>
 
         <div class="toolbar">
@@ -452,6 +452,10 @@
             <strong id="siteStatus">Pendiente</strong>
             <span>SharePoint</span>
           </div>
+        </div>
+
+        <div class="notice" id="articleMappingNotice">
+          Cabeceras del maestro: pendiente de carga.
         </div>
 
         <div class="menu-grid">
@@ -564,7 +568,7 @@
         </div>
 
         <div class="notice">
-          Esta versión v2 no guarda tarifas todavía. El siguiente paso será reutilizar la lógica de plantillas para guardar tarifas como JSON en la carpeta <strong>tarifas</strong>.
+          Esta versión v4 no guarda tarifas todavía. El siguiente paso será reutilizar la lógica de plantillas para guardar tarifas como JSON en la carpeta <strong>tarifas</strong>.
         </div>
       </div>
     </section>
@@ -866,7 +870,7 @@
         showView("loginView");
       }
 
-      loginLog("APP Tarifas v2 inicializada.");
+      loginLog("APP Tarifas v4 inicializada.");
     }
 
     async function signIn() {
@@ -1093,49 +1097,131 @@
       const rows = rowsResponse.value || [];
 
       graphState.articleHeaders = headers;
-      graphState.articles = rows.map(row => {
+
+      appLog("Tabla Excel encontrada: " + table.name);
+      appLog("Cabeceras detectadas: " + headers.join(" | "));
+      appLog("Filas devueltas por Graph: " + rows.length);
+
+      const parsed = rows.map((row, rowIndex) => {
         const values = row.values?.[0] || [];
         const item = {};
         headers.forEach((header, index) => item[header] = values[index]);
-        return normalizeArticle(item);
-      }).filter(a => a.codigo || a.descripcion);
+        return normalizeArticle(item, rowIndex);
+      });
+
+      graphState.articles = parsed.filter(a => {
+        const hasAnyData = Object.values(a.raw || {}).some(v => String(v ?? "").trim() !== "");
+        return hasAnyData;
+      });
 
       document.getElementById("articlesLoadedCount").textContent = graphState.articles.length;
+      updateArticleMappingNotice(headers, graphState.articles);
+
+      if (graphState.articles.length > 0) {
+        const sample = graphState.articles[0];
+        appLog("Primer artículo normalizado: codigo='" + sample.codigo + "', descripcion='" + sample.descripcion + "'");
+      }
+
       appLog("Artículos cargados desde Excel: " + graphState.articles.length);
     }
 
+    function updateArticleMappingNotice(headers, articles) {
+      const notice = document.getElementById("articleMappingNotice");
+      if (!notice) return;
+
+      const sample = articles[0] || {};
+      notice.innerHTML =
+        "<strong>Cabeceras del maestro detectadas:</strong> " + escapeHtml(headers.join(" | ")) + "<br>" +
+        "<strong>Primer registro normalizado:</strong> Código = " + escapeHtml(sample.codigo || "(vacío)") +
+        " · Descripción = " + escapeHtml(sample.descripcion || "(vacía)") +
+        " · Marca = " + escapeHtml(sample.marca || "(vacía)") +
+        " · Familia = " + escapeHtml(sample.familia || "(vacía)");
+    }
+
+    function extractExcelColumnName(value) {
+      const text = String(value ?? "").trim();
+      const bracketMatch = text.match(/\[([^\]]+)\]$/);
+      if (bracketMatch) return bracketMatch[1].trim();
+      return text;
+    }
+
+    function normalizeKey(value) {
+      return extractExcelColumnName(value)
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, "");
+    }
+
     function pickField(obj, candidates) {
-      const keys = Object.keys(obj || {});
+      const keys = Object.keys(obj || []);
+      const normalizedKeys = keys.map(k => ({
+        original: k,
+        extracted: extractExcelColumnName(k),
+        normalized: normalizeKey(k)
+      }));
+
       for (const candidate of candidates) {
-        const found = keys.find(k => k.toLowerCase().replace(/\s+/g, "") === candidate.toLowerCase().replace(/\s+/g, ""));
-        if (found) return obj[found];
+        const normalizedCandidate = normalizeKey(candidate);
+        const exact = normalizedKeys.find(k => k.normalized === normalizedCandidate);
+        if (exact) return obj[exact.original];
       }
+
+      for (const candidate of candidates) {
+        const normalizedCandidate = normalizeKey(candidate);
+        const contains = normalizedKeys.find(k =>
+          k.normalized.includes(normalizedCandidate) ||
+          normalizedCandidate.includes(k.normalized)
+        );
+        if (contains) return obj[contains.original];
+      }
+
       return "";
     }
 
-    function normalizeArticle(raw) {
-      return {
-        raw,
-        codigo: pickField(raw, ["CodigoArticulo", "Codigo", "Código", "Articulo", "Artículo", "xarticulo_id"]),
-        descripcion: pickField(raw, ["DescripcionArticulo", "DescripciónArticulo", "Descripcion", "Descripción", "ArticuloDescripcion", "xdescripcion"]),
-        marca: pickField(raw, ["Marca", "xmarca", "MarcaDescripcion"]),
-        familia: pickField(raw, ["Familia", "xfamilia", "FamiliaDescripcion"]),
-        subfamilia: pickField(raw, ["Subfamilia", "SubFamilia", "xsubfamilia", "SubfamiliaDescripcion"]),
-        grupo: pickField(raw, ["Grupo", "xgrupo", "GrupoDescripcion"]),
-        precioBase: Number(String(pickField(raw, ["Precio", "PrecioBase", "Tarifa", "PVP"])).replace(",", ".")) || 0
-      };
+    function firstNonEmptyValue(obj) {
+      const values = Object.values(obj || {});
+      const found = values.find(v => String(v ?? "").trim() !== "");
+      return found ?? "";
     }
 
-    function setLoadingState(isLoading, text) {
-      const notice = document.getElementById("loadingNotice");
-      if (!notice) return;
+    function normalizeArticle(raw, rowIndex) {
+      let codigo = pickField(raw, [
+        "xarticulo_id", "CodigoArticulo", "Codigo Articulo", "Código Artículo", "CodArticulo", "Cod Articulo",
+        "Codigo", "Código", "Cod", "IdArticulo", "ID Articulo", "Referencia", "Ref"
+      ]);
 
-      if (isLoading) {
-        notice.classList.remove("hidden");
-        notice.textContent = text || "Cargando datos iniciales. Espere unos segundos.";
-      } else {
-        notice.classList.add("hidden");
+      let descripcion = pickField(raw, [
+        "Articulo", "Artículo", "DescripcionArticulo", "Descripcion Articulo", "Descripción Artículo",
+        "Descripcion", "Descripción", "ArticuloDescripcion", "Articulo Descripcion",
+        "NombreArticulo", "Nombre Articulo", "Nombre", "Producto", "xdescripcion"
+      ]);
+
+      const marca = pickField(raw, ["Marca", "xmarca", "MarcaDescripcion", "Marca Descripcion"]);
+      const familia = pickField(raw, ["Familia", "xfamilia_id", "xfamilia", "FamiliaDescripcion", "Familia Descripcion"]);
+      const subfamilia = pickField(raw, ["Subfamilia", "Sub Familia", "SubFamilia", "ysubfamilia_id", "xsubfamilia", "SubfamiliaDescripcion"]);
+      const grupo = pickField(raw, ["Grupo", "ygrupo_id", "xgrupo", "GrupoDescripcion", "Grupo Descripcion"]);
+      const precioRaw = pickField(raw, ["Precio", "PrecioBase", "Precio Base", "Tarifa", "PVP", "Importe"]);
+
+      if (!String(codigo ?? "").trim()) {
+        const keys = Object.keys(raw || {});
+        codigo = raw[keys[1]] || raw[keys[0]] || ("FILA_" + String(rowIndex + 1).padStart(5, "0"));
       }
+
+      if (!String(descripcion ?? "").trim()) {
+        const keys = Object.keys(raw || {});
+        descripcion = raw[keys[2]] || firstNonEmptyValue(raw) || ("Artículo fila " + (rowIndex + 1));
+      }
+
+      return {
+        raw,
+        codigo,
+        descripcion,
+        marca,
+        familia,
+        subfamilia,
+        grupo,
+        precioBase: Number(String(precioRaw ?? "").replace(",", ".")) || 0
+      };
     }
 
     async function bootstrapUserData() {
