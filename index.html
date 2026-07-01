@@ -110,6 +110,29 @@
       margin: 14px 0;
     }
 
+    .loading-notice {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--soft-blue);
+      color: var(--primary-dark);
+      border-color: #bfdbfe;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      border: 3px solid rgba(37, 99, 235, 0.2);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     .menu-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(260px, 1fr));
@@ -302,6 +325,28 @@
     td.price-cell { width: 150px; }
     td.price-cell input { text-align: right; padding: 8px; }
 
+    /* En la tabla simplificada de tarifas: más espacio a la descripción,
+       precio ajustado para 4 dígitos + 2 decimales (ej. "9999,99"). */
+    table.simplified-lines th:first-child,
+    table.simplified-lines td:first-child {
+      width: auto;
+    }
+
+    table.simplified-lines th.price-col,
+    table.simplified-lines td.price-cell {
+      width: 108px;
+    }
+
+    table.simplified-lines td.price-cell input {
+      padding: 8px 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    table.simplified-lines th:last-child,
+    table.simplified-lines td:last-child {
+      width: 46px;
+    }
+
     .badge {
       display: inline-block;
       border-radius: 999px;
@@ -489,8 +534,9 @@
           <button onclick="bootstrapUserData()">Reintentar carga</button>
         </div>
 
-        <div id="loadingNotice" class="notice hidden">
-          Cargando datos iniciales. Espere unos segundos antes de trabajar con plantillas o tarifas.
+        <div class="loading-notice notice hidden">
+          <span class="spinner"></span>
+          <span class="loading-text">Cargando datos iniciales. Espere unos segundos antes de trabajar con plantillas o tarifas.</span>
         </div>
 
         <div class="summary">
@@ -552,6 +598,11 @@
           <button onclick="loadTemplatesFromSharePoint()">Recargar desde SharePoint</button>
         </div>
 
+        <div class="loading-notice notice hidden">
+          <span class="spinner"></span>
+          <span class="loading-text">Cargando plantillas...</span>
+        </div>
+
         <div id="templatesTableWrap" style="margin-top: 16px;"></div>
       </div>
     </section>
@@ -581,8 +632,9 @@
           </div>
         </div>
 
-        <div id="loadingNotice" class="notice hidden">
-          Cargando datos iniciales. Espere unos segundos antes de trabajar con plantillas o tarifas.
+        <div class="loading-notice notice hidden">
+          <span class="spinner"></span>
+          <span class="loading-text">Cargando datos iniciales. Espere unos segundos antes de trabajar con plantillas o tarifas.</span>
         </div>
 
         <div class="summary">
@@ -639,6 +691,11 @@
           <button onclick="loadTariffsFromSharePoint()">Recargar desde SharePoint</button>
         </div>
 
+        <div class="loading-notice notice hidden">
+          <span class="spinner"></span>
+          <span class="loading-text">Cargando tarifas...</span>
+        </div>
+
         <div class="form-row" style="max-width: 320px; margin: 14px 0 0;">
           <label>Filtrar por cliente</label>
           <input id="tarifaClienteFilter" type="text" placeholder="Buscar por nombre de cliente" oninput="renderTariffsTable()" />
@@ -688,6 +745,11 @@
         <div class="form-row" style="margin: 4px 0 14px;">
           <label>Condiciones</label>
           <textarea id="tarifaCondiciones" placeholder="Condiciones comerciales, forma de pago, plazos de entrega..."></textarea>
+        </div>
+
+        <div class="loading-notice notice hidden">
+          <span class="spinner"></span>
+          <span class="loading-text">Cargando maestro de artículos...</span>
         </div>
 
         <div class="summary">
@@ -1545,15 +1607,18 @@
     }
 
     function setLoadingState(isLoading, text) {
-      const notice = document.getElementById("loadingNotice");
-      if (!notice) return;
+      const notices = document.querySelectorAll(".loading-notice");
+      if (!notices.length) return;
 
-      if (isLoading) {
-        notice.classList.remove("hidden");
-        notice.textContent = text || "Cargando datos iniciales. Espere unos segundos.";
-      } else {
-        notice.classList.add("hidden");
-      }
+      notices.forEach(notice => {
+        if (isLoading) {
+          notice.classList.remove("hidden");
+          const label = notice.querySelector(".loading-text");
+          if (label) label.textContent = text || "Cargando datos iniciales. Espere unos segundos.";
+        } else {
+          notice.classList.add("hidden");
+        }
+      });
     }
 
     async function bootstrapUserData() {
@@ -2200,7 +2265,7 @@
       }
 
       const headCells = simplified
-        ? `<th>Descripción</th><th class="text-right">Precio</th><th></th>`
+        ? `<th>Descripción</th><th class="text-right price-col">Precio</th><th></th>`
         : `<th>Código artículo</th><th>Descripción artículo</th><th>Marca</th><th>Familia</th><th class="text-right">Precio</th><th>Acciones</th>`;
 
       const rowsHtml = lines.map((linea, index) => {
@@ -2236,7 +2301,7 @@
 
       wrap.innerHTML = `
         <div class="table-scroll">
-          <table>
+          <table class="${simplified ? "simplified-lines" : ""}">
             <thead><tr>${headCells}</tr></thead>
             <tbody>${rowsHtml}</tbody>
           </table>
