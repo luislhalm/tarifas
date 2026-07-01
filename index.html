@@ -563,14 +563,82 @@
         <div class="title-row">
           <div>
             <h2>Gestión de tarifas</h2>
-            <p>Preparado para la siguiente fase. Primero conviene estabilizar plantillas.</p>
+            <p>Tarifas de clientes guardadas como JSON en SharePoint.</p>
           </div>
           <button class="ghost" onclick="showView('homeView')">Volver</button>
         </div>
 
-        <div class="notice">
-          Esta versión v6 no guarda tarifas todavía. El siguiente paso será reutilizar la lógica de plantillas para guardar tarifas como JSON en la carpeta <strong>tarifas</strong>.
+        <div class="toolbar">
+          <button class="primary" onclick="openTariffOriginModal()">Crear nueva</button>
+          <button onclick="modifySelectedTariff()">Modificar</button>
+          <button class="danger" onclick="cancelSelectedTariff()">Anular</button>
+          <button onclick="loadTariffsFromSharePoint()">Recargar desde SharePoint</button>
         </div>
+
+        <div id="tarifasTableWrap" style="margin-top: 16px;"></div>
+      </div>
+    </section>
+
+    <section id="tarifaEditView" class="hidden">
+      <div class="card">
+        <div class="title-row">
+          <div>
+            <h2 id="tarifaEditTitle">Editar tarifa</h2>
+            <p>Defina artículos y precios para este cliente.</p>
+          </div>
+          <button class="ghost" onclick="showView('tarifasListView')">Volver al listado</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Cliente</label>
+            <input id="tarifaClienteNombre" type="text" placeholder="Nombre o código del cliente" />
+          </div>
+          <div class="form-row">
+            <label>Descripción (opcional)</label>
+            <input id="tarifaDescription" type="text" placeholder="Ej.: Tarifa 2026" />
+          </div>
+          <div class="form-row">
+            <label>Estado</label>
+            <input id="tarifaStatus" type="text" disabled />
+          </div>
+          <div class="form-row">
+            <label>ID interno</label>
+            <input id="tarifaId" type="text" disabled />
+          </div>
+          <div class="form-row">
+            <label>Plantilla de origen</label>
+            <input id="tarifaOrigen" type="text" disabled />
+          </div>
+        </div>
+
+        <div class="summary">
+          <div class="summary-item">
+            <strong id="tarifaLineCount">0</strong>
+            <span>Artículos</span>
+          </div>
+          <div class="summary-item">
+            <strong id="tarifaAvgPrice">0,00 €</strong>
+            <span>Precio medio</span>
+          </div>
+          <div class="summary-item">
+            <strong id="tarifaMinPrice">0,00 €</strong>
+            <span>Precio mínimo</span>
+          </div>
+          <div class="summary-item">
+            <strong id="tarifaMaxPrice">0,00 €</strong>
+            <span>Precio máximo</span>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button class="primary" onclick="openArticleModal()">Añadir artículo</button>
+          <button onclick="enablePriceEditing()">Modificar precios</button>
+          <button class="warning" onclick="openPercentageModal()">Modificar precios %</button>
+          <button class="success" onclick="saveTariffToSharePoint()">Guardar tarifa</button>
+        </div>
+
+        <div id="tarifaLinesWrap" style="margin-top: 16px;"></div>
       </div>
     </section>
   </main>
@@ -647,6 +715,39 @@
     </div>
   </div>
 
+  <div id="tariffOriginModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal small-modal">
+      <div class="modal-title">
+        <div>
+          <h3>Nueva tarifa</h3>
+          <p>Indique el cliente y, opcionalmente, la plantilla de partida.</p>
+        </div>
+        <button class="ghost" onclick="closeTariffOriginModal()">Cerrar</button>
+      </div>
+
+      <div class="form-row">
+        <label>Cliente</label>
+        <input id="newTariffCliente" type="text" placeholder="Nombre o código del cliente" />
+      </div>
+
+      <div class="form-row" style="margin-top: 12px;">
+        <label>Plantilla de origen (opcional)</label>
+        <select id="newTariffTemplateOrigin">
+          <option value="">— Crear desde cero —</option>
+        </select>
+      </div>
+
+      <div class="notice">
+        Si elige una plantilla, la tarifa se creará con los mismos artículos y precios, listos para ajustar por cliente.
+      </div>
+
+      <div class="toolbar">
+        <button class="primary" onclick="confirmCreateTariff()">Crear tarifa</button>
+        <button onclick="closeTariffOriginModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
   <script>
@@ -714,6 +815,10 @@
       selectedTemplateId: null,
       editingTemplateId: null,
       templates: [],
+      selectedTariffId: null,
+      editingTariffId: null,
+      tarifas: [],
+      editingKind: null,
       foldersReady: false,
       currentArticleSelection: new Set()
     };
@@ -781,13 +886,19 @@
     }
 
     function templateFileName(template) {
-      const id = template.id || generateId("PL");
+      const id = template.id || generateId("PL", appState.templates);
       const description = safeFileName(template.descripcion || "plantilla");
       return `${id}_${description}.json`;
     }
 
-    function generateId(prefix) {
-      const existing = appState.templates
+    function tariffFileName(tariff) {
+      const id = tariff.id || generateId("TF", appState.tarifas);
+      const cliente = safeFileName(tariff.clienteNombre || "cliente");
+      return `${id}_${cliente}.json`;
+    }
+
+    function generateId(prefix, list) {
+      const existing = (list || [])
         .map(t => t.id)
         .filter(id => String(id).startsWith(prefix + "-"))
         .map(id => Number(String(id).split("-")[1]))
@@ -798,13 +909,15 @@
     }
 
     function showView(viewId) {
-      ["loginView", "homeView", "plantillasListView", "templateEditView", "tarifasListView"]
+      ["loginView", "homeView", "plantillasListView", "templateEditView", "tarifasListView", "tarifaEditView"]
         .forEach(id => document.getElementById(id).classList.add("hidden"));
 
       document.getElementById(viewId).classList.remove("hidden");
 
       if (viewId === "plantillasListView") renderTemplatesTable();
       if (viewId === "templateEditView") renderTemplateEdit();
+      if (viewId === "tarifasListView") renderTariffsTable();
+      if (viewId === "tarifaEditView") renderTariffEdit();
     }
 
     function updateUserLabel() {
@@ -1266,6 +1379,7 @@
         await ensureUserFolders();
         await loadArticlesFromExcel();
         await loadTemplatesFromSharePoint();
+        await loadTariffsFromSharePoint();
 
         setLoadingState(false);
         showToast("Datos iniciales cargados.");
@@ -1372,7 +1486,66 @@
       }
     }
 
+    async function loadTariffsFromSharePoint() {
+      try {
+        const folders = await ensureUserFolders();
+        const files = await listJsonFiles(folders.tarifas);
+        const tarifas = [];
+
+        for (const file of files) {
+          try {
+            const text = await readDriveItemText(file.id);
+            const parsed = JSON.parse(text);
+            parsed._driveItemId = file.id;
+            parsed._fileName = file.name;
+            tarifas.push(parsed);
+          } catch (error) {
+            appLog("Archivo JSON de tarifa omitido por error: " + file.name + " · " + error.message);
+          }
+        }
+
+        tarifas.sort((a, b) => String(a.clienteNombre || "").localeCompare(String(b.clienteNombre || ""), "es"));
+        appState.tarifas = tarifas;
+        renderTariffsTable();
+        appLog("Tarifas cargadas: " + tarifas.length);
+      } catch (error) {
+        logError("Error cargando tarifas", error);
+      }
+    }
+
+    async function saveTariffFile(tariff) {
+      const folders = await ensureUserFolders();
+      const fileName = tariffFileName(tariff);
+      const path = folders.tarifas + "/" + fileName;
+      const payload = JSON.stringify(tariff, null, 2);
+      const site = await ensureSite();
+
+      const result = await graphPutRaw(
+        "/sites/" + encodeURIComponent(site.id) + "/drive/root:/" + encodeGraphPath(path) + ":/content",
+        payload
+      );
+
+      tariff._driveItemId = result.id;
+      tariff._fileName = result.name;
+      return result;
+    }
+
+    async function deleteOldTariffFileIfRenamed(tariff) {
+      if (!tariff._driveItemId || !tariff._fileName) return;
+      const expected = tariffFileName(tariff);
+      if (tariff._fileName === expected) return;
+
+      try {
+        const site = await ensureSite();
+        await graphRequest("DELETE", "/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(tariff._driveItemId));
+        appLog("Archivo anterior de tarifa eliminado tras cambio de nombre: " + tariff._fileName);
+      } catch (error) {
+        appLog("No se pudo eliminar archivo anterior de tarifa: " + tariff._fileName + " · " + error.message);
+      }
+    }
+
     async function openTemplatesModule() {
+      appState.editingKind = "plantilla";
       showView("plantillasListView");
 
       if (!appState.foldersReady || graphState.articles.length === 0) {
@@ -1382,8 +1555,15 @@
       }
     }
 
-    function openTariffsModule() {
+    async function openTariffsModule() {
+      appState.editingKind = "tarifa";
       showView("tarifasListView");
+
+      if (!appState.foldersReady || graphState.articles.length === 0) {
+        await bootstrapUserData();
+      } else {
+        await loadTariffsFromSharePoint();
+      }
     }
 
     function renderTemplatesTable() {
@@ -1437,7 +1617,7 @@
         await bootstrapUserData();
       }
 
-      const id = generateId("PL");
+      const id = generateId("PL", appState.templates);
       const template = {
         tipo: "plantilla",
         version: 1,
@@ -1453,6 +1633,7 @@
       appState.templates.push(template);
       appState.selectedTemplateId = id;
       appState.editingTemplateId = id;
+      appState.editingKind = "plantilla";
       showView("templateEditView");
     }
 
@@ -1474,6 +1655,7 @@
       }
 
       appState.editingTemplateId = template.id;
+      appState.editingKind = "plantilla";
       showView("templateEditView");
     }
 
@@ -1501,6 +1683,262 @@
       }
     }
 
+    function renderTariffsTable() {
+      const wrap = document.getElementById("tarifasTableWrap");
+      const tarifas = appState.tarifas.filter(t => t.estado !== "anulada");
+
+      if (!tarifas.length) {
+        wrap.innerHTML = '<div class="empty-state">No hay tarifas activas. Cree la primera tarifa.</div>';
+        return;
+      }
+
+      wrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Cliente</th>
+              <th>Descripción</th>
+              <th>Artículos</th>
+              <th>Origen</th>
+              <th>Última modificación</th>
+              <th>Estado</th>
+              <th>Archivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tarifas.map(t => `
+              <tr class="${appState.selectedTariffId === t.id ? "selected" : ""}" onclick="selectTariff('${escapeHtml(t.id)}')">
+                <td><input type="radio" name="selectedTariff" ${appState.selectedTariffId === t.id ? "checked" : ""} /></td>
+                <td>${escapeHtml(t.id)}</td>
+                <td>${escapeHtml(t.clienteNombre || "")}</td>
+                <td>${escapeHtml(t.descripcion || "")}</td>
+                <td>${(t.articulos || []).length}</td>
+                <td>${escapeHtml(t.plantillaOrigenId || "—")}</td>
+                <td>${escapeHtml(t.fechaModificacion || "")}</td>
+                <td><span class="badge ${t.estado === "activa" ? "active" : "cancelled"}">${escapeHtml(t.estado || "activa")}</span></td>
+                <td>${escapeHtml(t._fileName || "")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function selectTariff(id) {
+      appState.selectedTariffId = id;
+      renderTariffsTable();
+    }
+
+    async function openTariffOriginModal() {
+      if (!appState.foldersReady) {
+        await bootstrapUserData();
+      }
+
+      document.getElementById("newTariffCliente").value = "";
+
+      const select = document.getElementById("newTariffTemplateOrigin");
+      const activeTemplates = appState.templates.filter(t => t.estado !== "anulada");
+      select.innerHTML = `<option value="">— Crear desde cero —</option>` +
+        activeTemplates.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.id)} · ${escapeHtml(t.descripcion || "")}</option>`).join("");
+
+      document.getElementById("tariffOriginModalBackdrop").classList.remove("hidden");
+    }
+
+    function closeTariffOriginModal() {
+      document.getElementById("tariffOriginModalBackdrop").classList.add("hidden");
+    }
+
+    function confirmCreateTariff() {
+      const clienteNombre = document.getElementById("newTariffCliente").value.trim();
+      const templateOriginId = document.getElementById("newTariffTemplateOrigin").value;
+
+      if (!clienteNombre) {
+        showToast("Indique el cliente antes de crear la tarifa.");
+        return;
+      }
+
+      const originTemplate = templateOriginId
+        ? appState.templates.find(t => t.id === templateOriginId)
+        : null;
+
+      const id = generateId("TF", appState.tarifas);
+      const tariff = {
+        tipo: "tarifa",
+        version: 1,
+        id,
+        descripcion: originTemplate ? (originTemplate.descripcion || "") : "",
+        clienteNombre,
+        usuarioPropietario: activeAccount?.username || "",
+        fechaCreacion: today(),
+        fechaModificacion: today(),
+        estado: "activa",
+        plantillaOrigenId: originTemplate ? originTemplate.id : null,
+        articulos: originTemplate
+          ? originTemplate.articulos.map(linea => ({ ...linea }))
+          : []
+      };
+
+      appState.tarifas.push(tariff);
+      appState.selectedTariffId = id;
+      appState.editingTariffId = id;
+      appState.editingKind = "tarifa";
+      closeTariffOriginModal();
+      showView("tarifaEditView");
+    }
+
+    function modifySelectedTariff() {
+      if (!appState.selectedTariffId) {
+        showToast("Seleccione una tarifa antes de modificar.");
+        return;
+      }
+
+      const tariff = appState.tarifas.find(t => t.id === appState.selectedTariffId);
+      if (!tariff) {
+        showToast("No se encontró la tarifa seleccionada.");
+        return;
+      }
+
+      if (tariff.estado === "anulada") {
+        showToast("La tarifa está anulada.");
+        return;
+      }
+
+      appState.editingTariffId = tariff.id;
+      appState.editingKind = "tarifa";
+      showView("tarifaEditView");
+    }
+
+    async function cancelSelectedTariff() {
+      if (!appState.selectedTariffId) {
+        showToast("Seleccione una tarifa antes de anular.");
+        return;
+      }
+
+      const tariff = appState.tarifas.find(t => t.id === appState.selectedTariffId);
+      if (!tariff) return;
+
+      if (!confirm("¿Anular la tarifa seleccionada? No se eliminará físicamente.")) return;
+
+      tariff.estado = "anulada";
+      tariff.fechaModificacion = today();
+
+      try {
+        await saveTariffFile(tariff);
+        await loadTariffsFromSharePoint();
+        showToast("Tarifa anulada.");
+      } catch (error) {
+        logError("Error anulando tarifa", error);
+        showToast("Error anulando tarifa.");
+      }
+    }
+
+    function getEditingTariff() {
+      return appState.tarifas.find(t => t.id === appState.editingTariffId);
+    }
+
+    function getCurrentEditingEntity() {
+      return appState.editingKind === "tarifa" ? getEditingTariff() : getEditingTemplate();
+    }
+
+    function refreshCurrentEditView() {
+      if (appState.editingKind === "tarifa") {
+        renderTariffLines();
+        renderTariffSummary();
+      } else {
+        renderTemplateLines();
+        renderTemplateSummary();
+      }
+    }
+
+    function refreshCurrentEditSummary() {
+      if (appState.editingKind === "tarifa") renderTariffSummary();
+      else renderTemplateSummary();
+    }
+
+    function renderTariffEdit() {
+      const tariff = getEditingTariff();
+      if (!tariff) {
+        showView("tarifasListView");
+        return;
+      }
+
+      document.getElementById("tarifaEditTitle").textContent =
+        tariff.clienteNombre ? "Tarifa: " + tariff.clienteNombre : "Nueva tarifa";
+
+      document.getElementById("tarifaClienteNombre").value = tariff.clienteNombre || "";
+      document.getElementById("tarifaDescription").value = tariff.descripcion || "";
+      document.getElementById("tarifaStatus").value = tariff.estado || "activa";
+      document.getElementById("tarifaId").value = tariff.id || "";
+      document.getElementById("tarifaOrigen").value = tariff.plantillaOrigenId || "Sin plantilla de origen";
+
+      renderTariffLines();
+      renderTariffSummary();
+    }
+
+    function renderTariffLines() {
+      renderLinesTable("tarifaLinesWrap", getEditingTariff());
+    }
+
+    function renderTariffSummary() {
+      renderSummaryValues(
+        { count: "tarifaLineCount", avg: "tarifaAvgPrice", min: "tarifaMinPrice", max: "tarifaMaxPrice" },
+        getEditingTariff()
+      );
+    }
+
+    function validateTariff(tariff) {
+      if (!tariff.clienteNombre || !tariff.clienteNombre.trim()) {
+        return { valid: false, message: "La tarifa debe tener un cliente." };
+      }
+
+      const codes = new Set();
+      for (const line of tariff.articulos || []) {
+        if (!line.codigo) return { valid: false, message: "Hay una línea sin código de artículo." };
+        if (codes.has(line.codigo)) return { valid: false, message: "Artículo duplicado: " + line.codigo };
+        codes.add(line.codigo);
+
+        const price = Number(line.precio);
+        if (Number.isNaN(price) || price < 0) {
+          return { valid: false, message: "Precio inválido en artículo " + line.codigo };
+        }
+      }
+
+      return { valid: true };
+    }
+
+    async function saveTariffToSharePoint() {
+      const tariff = getEditingTariff();
+      if (!tariff) return;
+
+      const oldFileName = tariff._fileName;
+      tariff.clienteNombre = document.getElementById("tarifaClienteNombre").value.trim();
+      tariff.descripcion = document.getElementById("tarifaDescription").value.trim();
+      tariff.fechaModificacion = today();
+
+      const validation = validateTariff(tariff);
+      if (!validation.valid) {
+        showToast(validation.message);
+        return;
+      }
+
+      try {
+        if (oldFileName && oldFileName !== tariffFileName(tariff)) {
+          await deleteOldTariffFileIfRenamed(tariff);
+        }
+
+        await saveTariffFile(tariff);
+        await loadTariffsFromSharePoint();
+        appState.selectedTariffId = tariff.id;
+        showToast("Tarifa guardada en SharePoint.");
+        showView("tarifasListView");
+      } catch (error) {
+        logError("Error guardando tarifa", error);
+        showToast("Error guardando tarifa en SharePoint.");
+      }
+    }
+
     function getEditingTemplate() {
       return appState.templates.find(t => t.id === appState.editingTemplateId);
     }
@@ -1523,10 +1961,9 @@
       renderTemplateSummary();
     }
 
-    function renderTemplateLines() {
-      const template = getEditingTemplate();
-      const wrap = document.getElementById("templateLinesWrap");
-      const lines = template?.articulos || [];
+    function renderLinesTable(wrapId, entity) {
+      const wrap = document.getElementById(wrapId);
+      const lines = entity?.articulos || [];
 
       if (!lines.length) {
         wrap.innerHTML = '<div class="empty-state">No hay artículos añadidos.</div>';
@@ -1554,10 +1991,10 @@
                 <td>${escapeHtml(linea.familia || "")}</td>
                 <td class="price-cell">
                   <input type="number" step="0.01" value="${Number(linea.precio || 0).toFixed(2)}"
-                    onchange="updateLinePrice(${index}, this.value)" />
+                    onchange="updateEntityLinePrice(${index}, this.value)" />
                 </td>
                 <td>
-                  <button class="small danger" onclick="removeLine(${index})">Eliminar</button>
+                  <button class="small danger" onclick="removeEntityLine(${index})">Eliminar</button>
                 </td>
               </tr>
             `).join("")}
@@ -1566,45 +2003,54 @@
       `;
     }
 
-    function renderTemplateSummary() {
-      const template = getEditingTemplate();
-      const prices = (template?.articulos || []).map(l => Number(l.precio)).filter(p => !Number.isNaN(p));
+    function renderSummaryValues(ids, entity) {
+      const prices = (entity?.articulos || []).map(l => Number(l.precio)).filter(p => !Number.isNaN(p));
       const count = prices.length;
       const avg = count ? prices.reduce((a, b) => a + b, 0) / count : 0;
       const min = count ? Math.min(...prices) : 0;
       const max = count ? Math.max(...prices) : 0;
 
-      document.getElementById("templateLineCount").textContent = count;
-      document.getElementById("templateAvgPrice").textContent = money(avg);
-      document.getElementById("templateMinPrice").textContent = money(min);
-      document.getElementById("templateMaxPrice").textContent = money(max);
+      document.getElementById(ids.count).textContent = count;
+      document.getElementById(ids.avg).textContent = money(avg);
+      document.getElementById(ids.min).textContent = money(min);
+      document.getElementById(ids.max).textContent = money(max);
     }
 
-    function updateLinePrice(index, value) {
-      const template = getEditingTemplate();
-      if (!template) return;
+    function renderTemplateLines() {
+      renderLinesTable("templateLinesWrap", getEditingTemplate());
+    }
+
+    function renderTemplateSummary() {
+      renderSummaryValues(
+        { count: "templateLineCount", avg: "templateAvgPrice", min: "templateMinPrice", max: "templateMaxPrice" },
+        getEditingTemplate()
+      );
+    }
+
+    function updateEntityLinePrice(index, value) {
+      const entity = getCurrentEditingEntity();
+      if (!entity) return;
 
       const price = Number(value);
       if (Number.isNaN(price) || price < 0) {
         showToast("El precio debe ser numérico y no negativo.");
-        renderTemplateLines();
+        refreshCurrentEditView();
         return;
       }
 
-      template.articulos[index].precio = Math.round(price * 100) / 100;
-      template.fechaModificacion = today();
-      renderTemplateSummary();
+      entity.articulos[index].precio = Math.round(price * 100) / 100;
+      entity.fechaModificacion = today();
+      refreshCurrentEditSummary();
     }
 
-    function removeLine(index) {
-      const template = getEditingTemplate();
-      if (!template) return;
-      if (!confirm("¿Eliminar este artículo de la plantilla?")) return;
+    function removeEntityLine(index) {
+      const entity = getCurrentEditingEntity();
+      if (!entity) return;
+      if (!confirm("¿Eliminar este artículo?")) return;
 
-      template.articulos.splice(index, 1);
-      template.fechaModificacion = today();
-      renderTemplateLines();
-      renderTemplateSummary();
+      entity.articulos.splice(index, 1);
+      entity.fechaModificacion = today();
+      refreshCurrentEditView();
     }
 
     function validateTemplate(template) {
@@ -1662,8 +2108,8 @@
     }
 
     function openPercentageModal() {
-      const template = getEditingTemplate();
-      if (!template || !template.articulos.length) {
+      const entity = getCurrentEditingEntity();
+      if (!entity || !entity.articulos.length) {
         showToast("No hay artículos para modificar.");
         return;
       }
@@ -1676,8 +2122,8 @@
     }
 
     function applyPercentageChange() {
-      const template = getEditingTemplate();
-      if (!template) return;
+      const entity = getCurrentEditingEntity();
+      if (!entity) return;
 
       const percentage = Number(document.getElementById("percentageValue").value);
       if (Number.isNaN(percentage)) {
@@ -1687,15 +2133,14 @@
 
       if (!confirm("¿Aplicar una variación del " + percentage + "% a todos los artículos?")) return;
 
-      template.articulos = template.articulos.map(linea => ({
+      entity.articulos = entity.articulos.map(linea => ({
         ...linea,
         precio: Math.round((Number(linea.precio || 0) * (1 + percentage / 100)) * 100) / 100
       }));
 
-      template.fechaModificacion = today();
+      entity.fechaModificacion = today();
       closePercentageModal();
-      renderTemplateLines();
-      renderTemplateSummary();
+      refreshCurrentEditView();
       showToast("Precios modificados.");
     }
 
@@ -1810,15 +2255,15 @@
     }
 
     function addSelectedArticles() {
-      const template = getEditingTemplate();
-      if (!template) return;
+      const entity = getCurrentEditingEntity();
+      if (!entity) return;
 
       if (!appState.currentArticleSelection.size) {
         showToast("Seleccione al menos un artículo.");
         return;
       }
 
-      const existingCodes = new Set((template.articulos || []).map(l => String(l.codigo)));
+      const existingCodes = new Set((entity.articulos || []).map(l => String(l.codigo)));
       let added = 0;
       let duplicated = 0;
 
@@ -1831,7 +2276,7 @@
           return;
         }
 
-        template.articulos.push({
+        entity.articulos.push({
           codigo: article.codigo,
           descripcion: article.descripcion,
           marca: article.marca,
@@ -1845,10 +2290,9 @@
         added++;
       });
 
-      template.fechaModificacion = today();
+      entity.fechaModificacion = today();
       closeArticleModal();
-      renderTemplateLines();
-      renderTemplateSummary();
+      refreshCurrentEditView();
 
       if (duplicated) showToast(`${added} artículo(s) añadido(s). ${duplicated} duplicado(s) omitido(s).`);
       else showToast(`${added} artículo(s) añadido(s).`);
