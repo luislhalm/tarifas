@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
-  <title>APP Tarifas v5</title>
+  <title>APP Tarifas v6</title>
 
   <style>
     :root {
@@ -391,7 +391,7 @@
 
 <body>
   <header>
-    <h1>APP Tarifas v5</h1>
+    <h1>APP Tarifas v6</h1>
     <div class="user-box">
       <span id="currentUserLabel">No autenticado</span>
       <button id="logoutBtn" class="small ghost hidden" onclick="signOut()">Cerrar sesión</button>
@@ -409,7 +409,7 @@
         </div>
 
         <div class="notice">
-          Versión v5 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
+          Versión v6 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
           En móvil, abra esta página directamente en Safari, Edge o Chrome. No la abra desde una previsualización embebida.
         </div>
 
@@ -569,7 +569,7 @@
         </div>
 
         <div class="notice">
-          Esta versión v5 no guarda tarifas todavía. El siguiente paso será reutilizar la lógica de plantillas para guardar tarifas como JSON en la carpeta <strong>tarifas</strong>.
+          Esta versión v6 no guarda tarifas todavía. El siguiente paso será reutilizar la lógica de plantillas para guardar tarifas como JSON en la carpeta <strong>tarifas</strong>.
         </div>
       </div>
     </section>
@@ -871,7 +871,7 @@
         showView("loginView");
       }
 
-      loginLog("APP Tarifas v5 inicializada.");
+      loginLog("APP Tarifas v6 inicializada.");
     }
 
     async function signIn() {
@@ -1240,6 +1240,18 @@
         grupo,
         precioBase: Number(String(precioRaw ?? "").replace(",", ".")) || 0
       };
+    }
+
+    function setLoadingState(isLoading, text) {
+      const notice = document.getElementById("loadingNotice");
+      if (!notice) return;
+
+      if (isLoading) {
+        notice.classList.remove("hidden");
+        notice.textContent = text || "Cargando datos iniciales. Espere unos segundos.";
+      } else {
+        notice.classList.add("hidden");
+      }
     }
 
     async function bootstrapUserData() {
