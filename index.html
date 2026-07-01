@@ -171,6 +171,32 @@
     button.success { background: var(--success); color: white; }
     button.warning { background: var(--warning); color: white; }
     button.ghost { background: transparent; border: 1px solid var(--border); }
+
+    header button.ghost {
+      color: #f1f5f9;
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .table-scroll table { min-width: 100%; }
+
+    button.icon-danger {
+      background: var(--soft-red);
+      color: var(--danger);
+      border-radius: 8px;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    button.icon-danger:hover { background: #fecaca; }
     button.small { padding: 7px 10px; font-size: 13px; border-radius: 7px; }
     button:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -611,6 +637,11 @@
           <button onclick="modifySelectedTariff()">Modificar</button>
           <button class="danger" onclick="cancelSelectedTariff()">Anular</button>
           <button onclick="loadTariffsFromSharePoint()">Recargar desde SharePoint</button>
+        </div>
+
+        <div class="form-row" style="max-width: 320px; margin: 14px 0 0;">
+          <label>Filtrar por cliente</label>
+          <input id="tarifaClienteFilter" type="text" placeholder="Buscar por nombre de cliente" oninput="renderTariffsTable()" />
         </div>
 
         <div id="tarifasTableWrap" style="margin-top: 16px;"></div>
@@ -1741,6 +1772,7 @@
       }
 
       wrap.innerHTML = `
+        <div class="table-scroll">
         <table>
           <thead>
             <tr>
@@ -1769,6 +1801,7 @@
             `).join("")}
           </tbody>
         </table>
+        </div>
       `;
     }
 
@@ -1850,14 +1883,20 @@
 
     function renderTariffsTable() {
       const wrap = document.getElementById("tarifasTableWrap");
-      const tarifas = appState.tarifas.filter(t => t.estado !== "anulada");
+      const filterValue = (document.getElementById("tarifaClienteFilter")?.value || "").trim().toLowerCase();
+
+      let tarifas = appState.tarifas.filter(t => t.estado !== "anulada");
+      if (filterValue) {
+        tarifas = tarifas.filter(t => String(t.clienteNombre || "").toLowerCase().includes(filterValue));
+      }
 
       if (!tarifas.length) {
-        wrap.innerHTML = '<div class="empty-state">No hay tarifas activas. Cree la primera tarifa.</div>';
+        wrap.innerHTML = '<div class="empty-state">No hay tarifas que coincidan con la búsqueda.</div>';
         return;
       }
 
       wrap.innerHTML = `
+        <div class="table-scroll">
         <table>
           <thead>
             <tr>
@@ -1890,6 +1929,7 @@
             `).join("")}
           </tbody>
         </table>
+        </div>
       `;
     }
 
@@ -2051,7 +2091,7 @@
     }
 
     function renderTariffLines() {
-      renderLinesTable("tarifaLinesWrap", getEditingTariff());
+      renderLinesTable("tarifaLinesWrap", getEditingTariff(), { simplified: true });
     }
 
     function renderTariffSummary() {
@@ -2106,8 +2146,9 @@
         await saveTariffFile(tariff);
         await loadTariffsFromSharePoint();
         appState.selectedTariffId = tariff.id;
+        appState.editingTariffId = tariff.id;
         showToast("Tarifa guardada en SharePoint.");
-        showView("tarifasListView");
+        renderTariffEdit();
       } catch (error) {
         logError("Error guardando tarifa", error);
         showToast("Error guardando tarifa en SharePoint.");
@@ -2136,8 +2177,21 @@
       renderTemplateSummary();
     }
 
-    function renderLinesTable(wrapId, entity) {
+    function compareArticleCodes(a, b) {
+      const an = Number(a);
+      const bn = Number(b);
+      if (!Number.isNaN(an) && !Number.isNaN(bn)) return an - bn;
+      return String(a ?? "").localeCompare(String(b ?? ""), "es", { numeric: true });
+    }
+
+    function renderLinesTable(wrapId, entity, options = {}) {
+      const simplified = !!options.simplified;
       const wrap = document.getElementById(wrapId);
+
+      if (entity && Array.isArray(entity.articulos)) {
+        entity.articulos.sort((a, b) => compareArticleCodes(a.codigo, b.codigo));
+      }
+
       const lines = entity?.articulos || [];
 
       if (!lines.length) {
@@ -2145,36 +2199,48 @@
         return;
       }
 
-      wrap.innerHTML = `
-        <table>
-          <thead>
+      const headCells = simplified
+        ? `<th>Descripción</th><th class="text-right">Precio</th><th></th>`
+        : `<th>Código artículo</th><th>Descripción artículo</th><th>Marca</th><th>Familia</th><th class="text-right">Precio</th><th>Acciones</th>`;
+
+      const rowsHtml = lines.map((linea, index) => {
+        const priceCell = `
+          <td class="price-cell">
+            <input type="number" step="0.01" value="${Number(linea.precio || 0).toFixed(2)}"
+              onchange="updateEntityLinePrice(${index}, this.value)" />
+          </td>`;
+
+        if (simplified) {
+          return `
             <tr>
-              <th>Código artículo</th>
-              <th>Descripción artículo</th>
-              <th>Marca</th>
-              <th>Familia</th>
-              <th class="text-right">Precio</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${lines.map((linea, index) => `
-              <tr>
-                <td>${escapeHtml(linea.codigo)}</td>
-                <td>${escapeHtml(linea.descripcion)}</td>
-                <td>${escapeHtml(linea.marca || "")}</td>
-                <td>${escapeHtml(linea.familia || "")}</td>
-                <td class="price-cell">
-                  <input type="number" step="0.01" value="${Number(linea.precio || 0).toFixed(2)}"
-                    onchange="updateEntityLinePrice(${index}, this.value)" />
-                </td>
-                <td>
-                  <button class="small danger" onclick="removeEntityLine(${index})">Eliminar</button>
-                </td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
+              <td>${escapeHtml(linea.descripcion)}</td>
+              ${priceCell}
+              <td class="text-right">
+                <button class="icon-danger" title="Eliminar artículo" onclick="removeEntityLine(${index})">✕</button>
+              </td>
+            </tr>`;
+        }
+
+        return `
+          <tr>
+            <td>${escapeHtml(linea.codigo)}</td>
+            <td>${escapeHtml(linea.descripcion)}</td>
+            <td>${escapeHtml(linea.marca || "")}</td>
+            <td>${escapeHtml(linea.familia || "")}</td>
+            ${priceCell}
+            <td>
+              <button class="small danger" onclick="removeEntityLine(${index})">Eliminar</button>
+            </td>
+          </tr>`;
+      }).join("");
+
+      wrap.innerHTML = `
+        <div class="table-scroll">
+          <table>
+            <thead><tr>${headCells}</tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
       `;
     }
 
