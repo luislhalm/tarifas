@@ -110,13 +110,28 @@
       margin: 14px 0;
     }
 
-    .loading-notice {
+    .global-loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.62);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 12px;
-      background: var(--soft-blue);
-      color: var(--primary-dark);
-      border-color: #bfdbfe;
+      justify-content: center;
+      gap: 18px;
+      z-index: 3000;
+      color: #f8fafc;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .global-loading-overlay .loading-text {
+      font-size: 15px;
+      font-weight: 600;
+      max-width: 320px;
+      line-height: 1.4;
     }
 
     .spinner {
@@ -129,43 +144,113 @@
       animation: spin 0.8s linear infinite;
     }
 
+    .spinner-lg {
+      width: 46px;
+      height: 46px;
+      border-width: 4px;
+      border-color: rgba(255, 255, 255, 0.25);
+      border-top-color: #ffffff;
+    }
+
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    .home-hero {
+      text-align: center;
+      max-width: 640px;
+      margin: 8px auto 28px;
+      padding: 0 16px;
+    }
+
+    .home-eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 0 0 8px;
+    }
+
+    .home-hero h2 {
+      font-size: 28px;
+      margin: 0;
+      color: var(--text);
+    }
+
+    .home-footer {
+      text-align: center;
+      margin: 22px 0 8px;
+    }
+
+    .link-button {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 6px;
+    }
+
+    .link-button:hover { color: var(--primary); }
 
     .menu-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(260px, 1fr));
       gap: 20px;
       margin-top: 18px;
+      max-width: 760px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .menu-button {
       border: 1px solid var(--border);
       background: white;
-      border-radius: 16px;
-      padding: 30px;
-      min-height: 170px;
+      border-radius: 20px;
+      padding: 32px 28px;
+      min-height: 210px;
       text-align: left;
       cursor: pointer;
-      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     }
 
     .menu-button:hover {
-      transform: translateY(-2px);
+      transform: translateY(-3px);
       box-shadow: var(--shadow);
-      border-color: var(--primary);
     }
 
+    .menu-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .menu-icon svg { width: 26px; height: 26px; }
+
+    .menu-button-plantillas { border-color: #dbeafe; }
+    .menu-button-plantillas .menu-icon { background: var(--primary); }
+    .menu-button-plantillas:hover { border-color: var(--primary); }
+
+    .menu-button-tarifas { border-color: #ccfbf1; }
+    .menu-button-tarifas .menu-icon { background: #0f766e; }
+    .menu-button-tarifas:hover { border-color: #0f766e; }
+
     .menu-button h3 {
-      margin: 0 0 12px;
+      margin: 0 0 10px;
       font-size: 22px;
     }
 
     .menu-button p {
       margin: 0;
       color: var(--muted);
-      line-height: 1.45;
+      line-height: 1.5;
     }
 
     .toolbar {
@@ -525,18 +610,47 @@
     </section>
 
     <section id="homeView" class="hidden">
-      <div class="card">
+      <div class="home-hero">
+        <p class="home-eyebrow">APP Tarifas</p>
+        <h2>¿Qué quieres gestionar?</h2>
+      </div>
+
+      <div class="menu-grid">
+        <button class="menu-button menu-button-plantillas" onclick="openTemplatesModule()">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3 3 8l9 5 9-5-9-5Z" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+              <path d="M3 12l9 5 9-5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 16l9 5 9-5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <h3>Plantillas</h3>
+          <p>Crea y mantén tus plantillas de artículos con precios por defecto.</p>
+        </button>
+
+        <button class="menu-button menu-button-tarifas" onclick="openTariffsModule()">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 12.5 12.5 20a2 2 0 0 1-2.83 0l-6.67-6.67a2 2 0 0 1 0-2.83L10.5 3H18a2 2 0 0 1 2 2v7.5Z" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+              <circle cx="15.5" cy="7.5" r="1.5" fill="white"/>
+            </svg>
+          </span>
+          <h3>Tarifas</h3>
+          <p>Genera tarifas de cliente a partir de una plantilla o desde cero.</p>
+        </button>
+      </div>
+
+      <div class="home-footer">
+        <button class="link-button" id="homeDetailsToggle" onclick="toggleHomeDetails()">Ver detalles técnicos</button>
+      </div>
+
+      <div class="card hidden" id="homeDetailsPanel">
         <div class="title-row">
           <div>
-            <h2>Pantalla principal</h2>
-            <p>Seleccione el módulo de trabajo.</p>
+            <h2>Detalles técnicos</h2>
+            <p>Estado de la carga inicial de datos.</p>
           </div>
           <button onclick="bootstrapUserData()">Reintentar carga</button>
-        </div>
-
-        <div class="loading-notice notice hidden">
-          <span class="spinner"></span>
-          <span class="loading-text">Cargando datos iniciales. Espere unos segundos antes de trabajar con plantillas o tarifas.</span>
         </div>
 
         <div class="summary">
@@ -562,21 +676,7 @@
           Cabeceras del maestro: pendiente de carga.
         </div>
 
-        <div class="menu-grid">
-          <button class="menu-button" onclick="openTemplatesModule()">
-            <h3>Gestionar plantillas</h3>
-            <p>Crear, modificar o anular plantillas de artículos con precios por defecto.</p>
-          </button>
-
-          <button class="menu-button" onclick="openTariffsModule()">
-            <h3>Gestionar tarifas</h3>
-            <p>Primer módulo preparado. La lógica de tarifas se activará después de cerrar plantillas.</p>
-          </button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Registro técnico</h2>
+        <h2 style="margin-top: 20px;">Registro técnico</h2>
         <pre id="appLog"></pre>
       </div>
     </section>
@@ -596,11 +696,6 @@
           <button onclick="modifySelectedTemplate()">Modificar</button>
           <button class="danger" onclick="cancelSelectedTemplate()">Anular</button>
           <button onclick="loadTemplatesFromSharePoint()">Recargar desde SharePoint</button>
-        </div>
-
-        <div class="loading-notice notice hidden">
-          <span class="spinner"></span>
-          <span class="loading-text">Cargando plantillas...</span>
         </div>
 
         <div id="templatesTableWrap" style="margin-top: 16px;"></div>
@@ -630,11 +725,6 @@
             <label>ID interno</label>
             <input id="templateId" type="text" disabled />
           </div>
-        </div>
-
-        <div class="loading-notice notice hidden">
-          <span class="spinner"></span>
-          <span class="loading-text">Cargando datos iniciales. Espere unos segundos antes de trabajar con plantillas o tarifas.</span>
         </div>
 
         <div class="summary">
@@ -691,11 +781,6 @@
           <button onclick="loadTariffsFromSharePoint()">Recargar desde SharePoint</button>
         </div>
 
-        <div class="loading-notice notice hidden">
-          <span class="spinner"></span>
-          <span class="loading-text">Cargando tarifas...</span>
-        </div>
-
         <div class="form-row" style="max-width: 320px; margin: 14px 0 0;">
           <label>Filtrar por cliente</label>
           <input id="tarifaClienteFilter" type="text" placeholder="Buscar por nombre de cliente" oninput="renderTariffsTable()" />
@@ -745,11 +830,6 @@
         <div class="form-row" style="margin: 4px 0 14px;">
           <label>Condiciones</label>
           <textarea id="tarifaCondiciones" placeholder="Condiciones comerciales, forma de pago, plazos de entrega..."></textarea>
-        </div>
-
-        <div class="loading-notice notice hidden">
-          <span class="spinner"></span>
-          <span class="loading-text">Cargando maestro de artículos...</span>
         </div>
 
         <div class="summary">
@@ -928,6 +1008,11 @@
         <button onclick="closeTariffOriginModal()">Cancelar</button>
       </div>
     </div>
+  </div>
+
+  <div id="globalLoadingOverlay" class="global-loading-overlay hidden">
+    <div class="spinner spinner-lg"></div>
+    <div class="loading-text" id="globalLoadingText">Cargando datos...</div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
@@ -1153,6 +1238,15 @@
       if (viewId === "templateEditView") renderTemplateEdit();
       if (viewId === "tarifasListView") renderTariffsTable();
       if (viewId === "tarifaEditView") renderTariffEdit();
+    }
+
+    function toggleHomeDetails() {
+      const panel = document.getElementById("homeDetailsPanel");
+      const btn = document.getElementById("homeDetailsToggle");
+      if (!panel || !btn) return;
+
+      const nowHidden = panel.classList.toggle("hidden");
+      btn.textContent = nowHidden ? "Ver detalles técnicos" : "Ocultar detalles técnicos";
     }
 
     function updateUserLabel() {
@@ -1607,18 +1701,16 @@
     }
 
     function setLoadingState(isLoading, text) {
-      const notices = document.querySelectorAll(".loading-notice");
-      if (!notices.length) return;
+      const overlay = document.getElementById("globalLoadingOverlay");
+      if (!overlay) return;
 
-      notices.forEach(notice => {
-        if (isLoading) {
-          notice.classList.remove("hidden");
-          const label = notice.querySelector(".loading-text");
-          if (label) label.textContent = text || "Cargando datos iniciales. Espere unos segundos.";
-        } else {
-          notice.classList.add("hidden");
-        }
-      });
+      if (isLoading) {
+        overlay.classList.remove("hidden");
+        const label = document.getElementById("globalLoadingText");
+        if (label) label.textContent = text || "Cargando datos iniciales. Espere unos segundos.";
+      } else {
+        overlay.classList.add("hidden");
+      }
     }
 
     async function bootstrapUserData() {
