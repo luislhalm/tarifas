@@ -1117,6 +1117,7 @@
       sitePath: "/sites/APPtarifas",
       masterFileName: "Articulos.xlsx",
       articleTableName: "Articulos",
+      imagesFolderName: "ImagenesArticulos",
       scopes: ["User.Read", "Sites.Read.All", "Files.Read", "Sites.ReadWrite.All"]
     };
 
@@ -1128,7 +1129,9 @@
       driveRoot: null,
       masterFile: null,
       articles: [],
-      articleHeaders: []
+      articleHeaders: [],
+      articleImagesIndex: null,
+      articleImageCache: {}
     };
 
     let appState = {
@@ -2622,6 +2625,88 @@
       }
     }
 
+    // --- Imágenes de artículos para el PDF ---
+    // Convención: carpeta CONFIG.imagesFolderName (raíz del sitio SharePoint) con
+    // un archivo de imagen por artículo, nombrado exactamente como su código
+    // (ej. "10001.jpg"). Se indexa una vez y se cachea en memoria por sesión.
+
+    function normalizeImageKey(fileName) {
+      return String(fileName ?? "")
+        .replace(/\.[a-zA-Z0-9]+$/, "")
+        .trim()
+        .toLowerCase();
+    }
+
+    function blobToDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function jsPdfImageFormat(dataUrl) {
+      if (dataUrl.startsWith("data:image/png")) return "PNG";
+      if (dataUrl.startsWith("data:image/webp")) return "WEBP";
+      return "JPEG";
+    }
+
+    async function loadArticleImagesIndex() {
+      if (graphState.articleImagesIndex) return graphState.articleImagesIndex;
+
+      const index = {};
+      try {
+        const site = await ensureSite();
+        const folder = await getDriveItemByPath(CONFIG.imagesFolderName);
+        const response = await graphGet(
+          "/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(folder.id) + "/children?$top=999"
+        );
+        const files = (response.value || []).filter(item => item.file);
+        files.forEach(file => { index[normalizeImageKey(file.name)] = file; });
+        appLog("Índice de imágenes de artículos cargado: " + files.length + " archivo(s).");
+      } catch (error) {
+        appLog("No se encontró la carpeta de imágenes \"" + CONFIG.imagesFolderName + "\": " + error.message + " (el PDF se generará sin fotos)");
+      }
+
+      graphState.articleImagesIndex = index;
+      return index;
+    }
+
+    async function getArticleImageDataUrl(codigo) {
+      const key = normalizeImageKey(codigo);
+      if (!key) return null;
+
+      if (Object.prototype.hasOwnProperty.call(graphState.articleImageCache, key)) {
+        return graphState.articleImageCache[key];
+      }
+
+      const index = await loadArticleImagesIndex();
+      const file = index[key];
+
+      if (!file) {
+        graphState.articleImageCache[key] = null;
+        return null;
+      }
+
+      try {
+        const site = await ensureSite();
+        const token = await getAccessToken();
+        const url = CONFIG.graphBase + "/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(file.id) + "/content";
+        const response = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+
+        const blob = await response.blob();
+        const dataUrl = await blobToDataUrl(blob);
+        graphState.articleImageCache[key] = dataUrl;
+        return dataUrl;
+      } catch (error) {
+        appLog("No se pudo cargar la imagen del artículo " + codigo + ": " + error.message);
+        graphState.articleImageCache[key] = null;
+        return null;
+      }
+    }
+
     async function generateTariffPdf() {
       const tariff = getEditingTariff();
       if (!tariff) return;
@@ -2638,6 +2723,15 @@
       }
 
       try {
+        setLoadingState(true, "Preparando imágenes de los artículos...");
+
+        const imagesByCode = {};
+        await Promise.all(tariff.articulos.map(async linea => {
+          imagesByCode[String(linea.codigo)] = await getArticleImageDataUrl(linea.codigo);
+        }));
+
+        setLoadingState(false);
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
@@ -2663,12 +2757,33 @@
           y += condicionesLines.length * 5 + 4;
         }
 
+        const IMG_SIZE = 14; // mm, lado de la miniatura cuadrada
+
         doc.autoTable({
           startY: y + 2,
-          head: [["Código", "Descripción", "Precio"]],
-          body: tariff.articulos.map(linea => [linea.codigo, linea.descripcion, money(linea.precio)]),
-          styles: { fontSize: 9 },
-          headStyles: { fillColor: [15, 23, 42] }
+          head: [["Foto", "Descripción", "Precio"]],
+          body: tariff.articulos.map(linea => ["", linea.descripcion, money(linea.precio)]),
+          styles: { fontSize: 9, minCellHeight: IMG_SIZE + 4, valign: "middle" },
+          headStyles: { fillColor: [15, 23, 42] },
+          columnStyles: {
+            0: { cellWidth: IMG_SIZE + 6 }
+          },
+          didDrawCell: (data) => {
+            if (data.section !== "body" || data.column.index !== 0) return;
+
+            const linea = tariff.articulos[data.row.index];
+            const dataUrl = linea ? imagesByCode[String(linea.codigo)] : null;
+            if (!dataUrl) return;
+
+            const x = data.cell.x + (data.cell.width - IMG_SIZE) / 2;
+            const yImg = data.cell.y + (data.cell.height - IMG_SIZE) / 2;
+
+            try {
+              doc.addImage(dataUrl, jsPdfImageFormat(dataUrl), x, yImg, IMG_SIZE, IMG_SIZE);
+            } catch (imgError) {
+              appLog("No se pudo insertar la imagen del artículo " + linea.codigo + ": " + imgError.message);
+            }
+          }
         });
 
         const blob = doc.output("blob");
@@ -2687,6 +2802,7 @@
         appLog("PDF de tarifa generado: " + fileName);
         showToast("PDF guardado en SharePoint: " + fileName);
       } catch (error) {
+        setLoadingState(false);
         logError("Error generando PDF de tarifa", error);
         showToast("Error generando el PDF.");
       }
