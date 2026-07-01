@@ -656,15 +656,15 @@
       <div class="filters">
         <div class="form-row">
           <label>Marca</label>
-          <select id="filterMarca" onchange="renderArticleResults()"></select>
+          <select id="filterMarca" onchange="onArticleFilterChange()"></select>
         </div>
         <div class="form-row">
           <label>Familia</label>
-          <select id="filterFamilia" onchange="renderArticleResults()"></select>
+          <select id="filterFamilia" onchange="onArticleFilterChange()"></select>
         </div>
         <div class="form-row">
           <label>Subfamilia</label>
-          <select id="filterSubfamilia" onchange="renderArticleResults()"></select>
+          <select id="filterSubfamilia" onchange="onArticleFilterChange()"></select>
         </div>
         <div class="form-row">
           <label>Grupo</label>
@@ -2172,6 +2172,17 @@
         uniqueSorted(values).map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
     }
 
+    function fillSelectPreserving(id, values) {
+      const select = document.getElementById(id);
+      const current = select.value;
+      const options = uniqueSorted(values);
+
+      select.innerHTML = `<option value="">Todos</option>` +
+        options.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+
+      select.value = options.includes(current) ? current : "";
+    }
+
     function buildArticleFilterOptions() {
       fillSelect("filterMarca", graphState.articles.map(a => a.marca));
       fillSelect("filterFamilia", graphState.articles.map(a => a.familia));
@@ -2179,27 +2190,55 @@
       fillSelect("filterGrupo", graphState.articles.map(a => a.grupo));
     }
 
+    function currentArticleFilterValues() {
+      return {
+        marca: document.getElementById("filterMarca").value,
+        familia: document.getElementById("filterFamilia").value,
+        subfamilia: document.getElementById("filterSubfamilia").value,
+        grupo: document.getElementById("filterGrupo").value
+      };
+    }
+
+    // Devuelve los artículos que cumplen los filtros actuales, ignorando los campos indicados en "exclude".
+    // Se usa para calcular qué opciones tienen sentido ofrecer en cada desplegable dependiente.
+    function articlesMatchingFilters(exclude = []) {
+      const f = currentArticleFilterValues();
+
+      return graphState.articles.filter(article => {
+        if (!exclude.includes("marca") && f.marca && String(article.marca) !== f.marca) return false;
+        if (!exclude.includes("familia") && f.familia && String(article.familia) !== f.familia) return false;
+        if (!exclude.includes("subfamilia") && f.subfamilia && String(article.subfamilia) !== f.subfamilia) return false;
+        if (!exclude.includes("grupo") && f.grupo && String(article.grupo) !== f.grupo) return false;
+        return true;
+      });
+    }
+
+    // Familia > Subfamilia > Grupo van anidadas (reflejado en los 3 primeros dígitos del código).
+    // Al cambiar Marca/Familia/Subfamilia, se recalculan las opciones disponibles de los niveles inferiores.
+    function onArticleFilterChange() {
+      const subfamiliaOptions = articlesMatchingFilters(["subfamilia", "grupo"]).map(a => a.subfamilia);
+      fillSelectPreserving("filterSubfamilia", subfamiliaOptions);
+
+      const grupoOptions = articlesMatchingFilters(["grupo"]).map(a => a.grupo);
+      fillSelectPreserving("filterGrupo", grupoOptions);
+
+      renderArticleResults();
+    }
+
     function clearArticleFilters(render = true) {
-      ["filterMarca", "filterFamilia", "filterSubfamilia", "filterGrupo", "filterCodigo", "filterDescripcionArticulo"]
-        .forEach(id => document.getElementById(id).value = "");
+      ["filterCodigo", "filterDescripcionArticulo"].forEach(id => document.getElementById(id).value = "");
+      buildArticleFilterOptions();
       appState.currentArticleSelection = new Set();
       if (render) renderArticleResults();
     }
 
     function filteredArticles() {
-      const marca = document.getElementById("filterMarca").value;
-      const familia = document.getElementById("filterFamilia").value;
-      const subfamilia = document.getElementById("filterSubfamilia").value;
-      const grupo = document.getElementById("filterGrupo").value;
+      const f = currentArticleFilterValues();
       const codigo = document.getElementById("filterCodigo").value.toLowerCase();
       const descripcion = document.getElementById("filterDescripcionArticulo").value.toLowerCase();
 
-      return graphState.articles.filter(article => {
-        return (!marca || String(article.marca) === marca)
-          && (!familia || String(article.familia) === familia)
-          && (!subfamilia || String(article.subfamilia) === subfamilia)
-          && (!grupo || String(article.grupo) === grupo)
-          && (!codigo || String(article.codigo || "").toLowerCase().includes(codigo))
+      return articlesMatchingFilters().filter(article => {
+        return (!codigo || String(article.codigo || "").toLowerCase().includes(codigo))
           && (!descripcion || String(article.descripcion || "").toLowerCase().includes(descripcion));
       });
     }
