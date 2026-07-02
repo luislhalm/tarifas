@@ -2411,12 +2411,35 @@
       else renderTemplateSummary();
     }
 
+    // Rellena "unidadPrincipal" y "cantidadEnvase" en líneas ya guardadas que no los
+    // tuvieran (por ejemplo, artículos añadidos antes de incorporar estos campos),
+    // buscando el artículo actual en el maestro por código. No pisa valores ya existentes.
+    function backfillArticleMetadata(entity) {
+      if (!entity || !Array.isArray(entity.articulos) || !graphState.articles.length) return;
+
+      entity.articulos.forEach(linea => {
+        if (linea.unidadPrincipal && linea.cantidadEnvase) return;
+
+        const master = graphState.articles.find(a => String(a.codigo) === String(linea.codigo));
+        if (!master) return;
+
+        if (!linea.unidadPrincipal && master.unidadPrincipal) {
+          linea.unidadPrincipal = master.unidadPrincipal;
+        }
+        if (!linea.cantidadEnvase && master.cantidadEnvase) {
+          linea.cantidadEnvase = master.cantidadEnvase;
+        }
+      });
+    }
+
     function renderTariffEdit() {
       const tariff = getEditingTariff();
       if (!tariff) {
         showView("tarifasListView");
         return;
       }
+
+      backfillArticleMetadata(tariff);
 
       document.getElementById("tarifaEditTitle").textContent =
         tariff.clienteNombre ? "Tarifa: " + tariff.clienteNombre : "Nueva tarifa";
@@ -2508,6 +2531,8 @@
         showView("plantillasListView");
         return;
       }
+
+      backfillArticleMetadata(template);
 
       document.getElementById("templateEditTitle").textContent =
         template.descripcion ? "Plantilla: " + template.descripcion : "Nueva plantilla";
@@ -2897,6 +2922,8 @@
     async function generateTariffPdf() {
       const tariff = getEditingTariff();
       if (!tariff) return;
+
+      backfillArticleMetadata(tariff);
 
       if (!tariff.articulos.length) {
         showToast("No hay artículos en la tarifa para exportar.");
