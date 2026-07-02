@@ -478,6 +478,15 @@
     td.price-cell { width: 150px; }
     td.price-cell input { text-align: right; padding: 8px; }
 
+    th.unit-col, td.unit-cell {
+      width: 52px;
+      text-align: center;
+      font-variant-caps: all-small-caps;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
     /* En la tabla simplificada de tarifas: más espacio a la descripción,
        precio ajustado para 4 dígitos + 2 decimales (ej. "9999,99"). */
     table.simplified-lines th:first-child,
@@ -1850,6 +1859,8 @@
       const subfamilia = pickField(raw, ["Subfamilia", "Sub Familia", "SubFamilia", "ysubfamilia_id", "xsubfamilia", "SubfamiliaDescripcion"]);
       const grupo = pickField(raw, ["Grupo", "ygrupo_id", "xgrupo", "GrupoDescripcion", "Grupo Descripcion"]);
       const precioRaw = pickField(raw, ["Precio", "PrecioBase", "Precio Base", "Tarifa", "PVP", "Importe"]);
+      const unidadPrincipal = pickField(raw, ["Unidad Principal", "UnidadPrincipal", "UM", "Unidad", "UnidadMedida", "Unidad Medida"]);
+      const cantidadEnvaseRaw = pickField(raw, ["SumCant_Envase", "CantidadEnvase", "Cantidad Envase", "CantEnvase", "Cant_Envase"]);
 
       if (!String(codigo ?? "").trim()) {
         const keys = Object.keys(raw || {});
@@ -1869,7 +1880,9 @@
         familia,
         subfamilia,
         grupo,
-        precioBase: Number(String(precioRaw ?? "").replace(",", ".")) || 0
+        precioBase: Number(String(precioRaw ?? "").replace(",", ".")) || 0,
+        unidadPrincipal: String(unidadPrincipal ?? "").trim(),
+        cantidadEnvase: Number(String(cantidadEnvaseRaw ?? "").replace(",", ".")) || 0
       };
     }
 
@@ -2530,8 +2543,8 @@
       }
 
       const headCells = simplified
-        ? `<th>Descripción</th><th class="text-right price-col">Precio</th><th></th>`
-        : `<th>Código artículo</th><th>Descripción artículo</th><th>Marca</th><th>Familia</th><th class="text-right">Precio</th><th>Acciones</th>`;
+        ? `<th>Descripción</th><th class="text-right price-col">Precio</th><th class="unit-col">Unidad</th><th></th>`
+        : `<th>Código artículo</th><th>Descripción artículo</th><th>Marca</th><th>Familia</th><th class="text-right">Precio</th><th class="unit-col">Unidad</th><th>Acciones</th>`;
 
       const rowsHtml = lines.map((linea, index) => {
         const priceCell = `
@@ -2540,11 +2553,14 @@
               onchange="updateEntityLinePrice(${index}, this.value)" />
           </td>`;
 
+        const unitCell = `<td class="unit-cell">${escapeHtml(linea.unidadPrincipal || "")}</td>`;
+
         if (simplified) {
           return `
             <tr>
               <td>${escapeHtml(linea.descripcion)}</td>
               ${priceCell}
+              ${unitCell}
               <td class="text-right">
                 <button class="icon-danger" title="Eliminar artículo" onclick="removeEntityLine(${index})">✕</button>
               </td>
@@ -2558,6 +2574,7 @@
             <td>${escapeHtml(linea.marca || "")}</td>
             <td>${escapeHtml(linea.familia || "")}</td>
             ${priceCell}
+            ${unitCell}
             <td>
               <button class="small danger" onclick="removeEntityLine(${index})">Eliminar</button>
             </td>
@@ -2931,8 +2948,13 @@
 
         doc.autoTable({
           startY: y + 2,
-          head: [["Foto", "Descripción", "Precio"]],
-          body: tariff.articulos.map(linea => ["", linea.descripcion, money(linea.precio)]),
+          head: [["Foto", "Descripción", "Precio", "Precio unitario"]],
+          body: tariff.articulos.map(linea => [
+            "",
+            linea.descripcion,
+            money(linea.precio),
+            money(Number(linea.cantidadEnvase || 0) * Number(linea.precio || 0))
+          ]),
           styles: { fontSize: 9, minCellHeight: IMG_SIZE + 4, valign: "middle" },
           headStyles: { fillColor: [15, 23, 42] },
           columnStyles: {
@@ -3156,7 +3178,9 @@
           familia: article.familia,
           subfamilia: article.subfamilia,
           grupo: article.grupo,
-          precio: article.precioBase || 0
+          precio: article.precioBase || 0,
+          unidadPrincipal: article.unidadPrincipal || "",
+          cantidadEnvase: article.cantidadEnvase || 0
         });
 
         existingCodes.add(String(article.codigo));
