@@ -488,7 +488,14 @@
     }
 
     /* En la tabla simplificada de tarifas: más espacio a la descripción,
-       precio ajustado para 4 dígitos + 2 decimales (ej. "9999,99"). */
+       precio ajustado para 4 dígitos + 2 decimales (ej. "9999,99").
+       table-layout: fixed es necesario para que los anchos de columna
+       se respeten de verdad y no los reajuste el navegador según el contenido. */
+    table.simplified-lines {
+      table-layout: fixed;
+      width: 100%;
+    }
+
     table.simplified-lines th:first-child,
     table.simplified-lines td:first-child {
       width: auto;
@@ -496,17 +503,22 @@
 
     table.simplified-lines th.price-col,
     table.simplified-lines td.price-cell {
-      width: 108px;
+      width: 92px;
     }
 
     table.simplified-lines td.price-cell input {
-      padding: 8px 6px;
+      padding: 8px 4px;
       font-variant-numeric: tabular-nums;
+    }
+
+    table.simplified-lines th.unit-col,
+    table.simplified-lines td.unit-cell {
+      width: 48px;
     }
 
     table.simplified-lines th:last-child,
     table.simplified-lines td:last-child {
-      width: 46px;
+      width: 42px;
     }
 
     .badge {
@@ -973,32 +985,22 @@
             <label>Descripción (opcional)</label>
             <input id="tarifaDescription" type="text" placeholder="Ej.: Tarifa 2026" />
           </div>
-          <div class="form-row">
-            <label>Estado</label>
-            <input id="tarifaStatus" type="text" disabled />
-          </div>
-          <div class="form-row">
-            <label>Plantilla de origen</label>
-            <input id="tarifaOrigen" type="text" disabled />
-          </div>
         </div>
 
-        <div class="hidden"><input id="tarifaId" type="text" disabled /></div>
+        <div class="hidden">
+          <input id="tarifaId" type="text" disabled />
+          <input id="tarifaStatus" type="text" disabled />
+          <input id="tarifaOrigen" type="text" disabled />
+        </div>
 
         <div class="form-row" style="margin: 4px 0 14px;">
           <label>Condiciones</label>
           <textarea id="tarifaCondiciones" placeholder="Condiciones comerciales, forma de pago, plazos de entrega..."></textarea>
         </div>
 
-        <div class="summary" style="grid-template-columns: minmax(160px, 240px);">
-          <div class="summary-item">
-            <strong id="tarifaAvgPrice">0,00 €</strong>
-            <span>Precio medio</span>
-          </div>
-        </div>
-
         <div class="hidden">
           <span id="tarifaLineCount">0</span>
+          <span id="tarifaAvgPrice">0,00 €</span>
           <span id="tarifaMinPrice">0,00 €</span>
           <span id="tarifaMaxPrice">0,00 €</span>
         </div>
@@ -2975,17 +2977,19 @@
 
         doc.autoTable({
           startY: y + 2,
-          head: [["Foto", "Descripción", "Precio", "Precio unitario"]],
+          head: [["Foto", "Descripción", "Precio", "Unidad", "Precio unitario"]],
           body: tariff.articulos.map(linea => [
             "",
             linea.descripcion,
             money(linea.precio),
+            linea.unidadPrincipal || "",
             money(Number(linea.cantidadEnvase || 0) * Number(linea.precio || 0))
           ]),
           styles: { fontSize: 9, minCellHeight: IMG_SIZE + 4, valign: "middle" },
           headStyles: { fillColor: [15, 23, 42] },
           columnStyles: {
-            0: { cellWidth: IMG_SIZE + 6 }
+            0: { cellWidth: IMG_SIZE + 6 },
+            3: { halign: "center", cellWidth: 18 }
           },
           didDrawCell: (data) => {
             if (data.section !== "body" || data.column.index !== 0) return;
