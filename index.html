@@ -1289,6 +1289,7 @@
       sitePath: "/sites/APPtarifas",
       masterFileName: "Articulos.xlsx",
       articleTableName: "Articulos",
+      dataLibraryName: "Datos",
       imagesFolderName: "imagenes",
       scopes: ["User.Read", "Sites.Read.All", "Files.Read", "Sites.ReadWrite.All"]
     };
@@ -1299,6 +1300,7 @@
     let graphState = {
       site: null,
       driveRoot: null,
+      dataDrive: null,
       masterFile: null,
       articles: [],
       articleHeaders: [],
@@ -1650,6 +1652,32 @@
       return graphState.driveRoot;
     }
 
+    // La biblioteca "Datos" (Articulos.xlsx + carpeta de imágenes) es una
+    // biblioteca de documentos aparte de "Documentos" (donde viven las
+    // carpetas de usuario), por lo que en Graph es un "drive" distinto con
+    // su propio ID. Hay que localizarlo una vez y usar /drives/{id}/... en
+    // vez de /sites/{siteId}/drive/... para todo lo relacionado con datos.
+    async function ensureDataDrive() {
+      if (graphState.dataDrive) return graphState.dataDrive;
+
+      const site = await ensureSite();
+      const response = await graphGet("/sites/" + encodeURIComponent(site.id) + "/drives");
+      const drives = response.value || [];
+      const match = drives.find(d => String(d.name).toLowerCase() === CONFIG.dataLibraryName.toLowerCase());
+
+      if (!match) {
+        throw new Error("No se encontró la biblioteca \"" + CONFIG.dataLibraryName + "\" en el sitio.");
+      }
+
+      graphState.dataDrive = match;
+      appLog("Biblioteca de datos localizada: " + match.name);
+      return match;
+    }
+
+    function dataDriveBase(drive) {
+      return "/drives/" + encodeURIComponent(drive.id);
+    }
+
     async function getDriveItemByPath(path) {
       const site = await ensureSite();
       const normalized = String(path || "").replace(/^\/+/, "").replace(/\/+$/, "");
@@ -1697,6 +1725,10 @@
       };
     }
 
+    // NOTA: el aislamiento de carpetas por usuario ya NO se gestiona aquí por código
+    // (llamada invite() de Graph), sino mediante la configuración nativa de SharePoint
+    // "Permisos de nivel de elemento" en la biblioteca de documentos. Ver notas del
+    // proyecto para la configuración exacta.
     async function ensureUserFolders() {
       const folders = await getUserFolders();
 
@@ -1718,28 +1750,28 @@
     }
 
     async function findMasterFile() {
-      const site = await ensureSite();
+      const drive = await ensureDataDrive();
 
       try {
-        graphState.masterFile = await graphGet("/sites/" + encodeURIComponent(site.id) + "/drive/root:/" + encodeURIComponent(CONFIG.masterFileName));
+        graphState.masterFile = await graphGet(dataDriveBase(drive) + "/root:/" + encodeGraphPath(CONFIG.masterFileName));
         return graphState.masterFile;
       } catch (errorByPath) {
         const searchQuery = CONFIG.masterFileName.replaceAll("'", "''");
-        const searchResult = await graphGet("/sites/" + encodeURIComponent(site.id) + "/drive/root/search(q='" + encodeURIComponent(searchQuery) + "')");
+        const searchResult = await graphGet(dataDriveBase(drive) + "/root/search(q='" + encodeURIComponent(searchQuery) + "')");
         const candidates = searchResult.value || [];
         const exact = candidates.find(item => item.name === CONFIG.masterFileName) || candidates[0];
-        if (!exact) throw new Error("No se encontró " + CONFIG.masterFileName);
+        if (!exact) throw new Error("No se encontró " + CONFIG.masterFileName + " en la biblioteca \"" + CONFIG.dataLibraryName + "\"");
         graphState.masterFile = exact;
         return exact;
       }
     }
 
     async function loadArticlesFromExcel() {
-      const site = await ensureSite();
+      const drive = await ensureDataDrive();
       if (!graphState.masterFile) await findMasterFile();
 
       const file = graphState.masterFile;
-      const base = "/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(file.id) + "/workbook";
+      const base = dataDriveBase(drive) + "/items/" + encodeURIComponent(file.id) + "/workbook";
 
       const tablesResponse = await graphGet(base + "/tables?$select=id,name,showHeaders,showTotals");
       const tables = tablesResponse.value || [];
@@ -2840,9 +2872,10 @@
     }
 
     // --- Imágenes de artículos para el PDF ---
-    // Convención: carpeta CONFIG.imagesFolderName (raíz del sitio SharePoint) con
-    // un archivo de imagen por artículo, nombrado exactamente como su código
-    // (ej. "10001.jpg"). Se indexa una vez y se cachea en memoria por sesión.
+    // Convención: carpeta CONFIG.imagesFolderName (ej. "imagenes") en la raíz
+    // de la biblioteca de documentos CONFIG.dataLibraryName (ej. "Datos"),
+    // con un archivo de imagen por artículo, nombrado exactamente como su
+    // código (ej. "10001.jpg"). Se indexa una vez y se cachea en memoria por sesión.
 
     function normalizeImageKey(fileName) {
       return String(fileName ?? "")
@@ -2870,17 +2903,16 @@
       if (graphState.articleImagesIndex) return graphState.articleImagesIndex;
 
       const index = {};
+
       try {
-        const site = await ensureSite();
-        const folder = await getDriveItemByPath(CONFIG.imagesFolderName);
-        const response = await graphGet(
-          "/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(folder.id) + "/children?$top=999"
-        );
+        const drive = await ensureDataDrive();
+        const folder = await graphGet(dataDriveBase(drive) + "/root:/" + encodeGraphPath(CONFIG.imagesFolderName));
+        const response = await graphGet(dataDriveBase(drive) + "/items/" + encodeURIComponent(folder.id) + "/children?$top=999");
         const files = (response.value || []).filter(item => item.file);
         files.forEach(file => { index[normalizeImageKey(file.name)] = file; });
         appLog("Índice de imágenes de artículos cargado: " + files.length + " archivo(s).");
       } catch (error) {
-        appLog("No se encontró la carpeta de imágenes \"" + CONFIG.imagesFolderName + "\": " + error.message + " (el PDF se generará sin fotos)");
+        appLog("No se encontró la carpeta de imágenes \"" + CONFIG.imagesFolderName + "\" en la biblioteca \"" + CONFIG.dataLibraryName + "\": " + error.message + " (el PDF se generará sin fotos)");
       }
 
       graphState.articleImagesIndex = index;
@@ -2904,9 +2936,9 @@
       }
 
       try {
-        const site = await ensureSite();
+        const drive = await ensureDataDrive();
         const token = await getAccessToken();
-        const url = CONFIG.graphBase + "/sites/" + encodeURIComponent(site.id) + "/drive/items/" + encodeURIComponent(file.id) + "/content";
+        const url = CONFIG.graphBase + dataDriveBase(drive) + "/items/" + encodeURIComponent(file.id) + "/content";
         const response = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
         if (!response.ok) throw new Error("HTTP " + response.status);
 
