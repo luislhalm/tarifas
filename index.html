@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
-  <title>APP Tarifas v6</title>
+  <title>APP Tarifas v7</title>
 
   <style>
     :root {
@@ -667,7 +667,7 @@
 
 <body>
   <header>
-    <h1>APP Tarifas v6</h1>
+    <h1>APP Tarifas v7</h1>
     <div class="user-box">
       <span id="currentUserLabel">No autenticado</span>
       <button id="logoutBtn" class="small ghost hidden" onclick="signOut()">Cerrar sesión</button>
@@ -704,7 +704,7 @@
 
       <div class="card hidden" id="loginDetailsPanel">
         <div class="notice">
-          Versión v6 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
+          Versión v7 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
           En móvil, abra esta página directamente en Safari, Edge o Chrome. No la abra desde una previsualización embebida.
         </div>
 
@@ -851,33 +851,24 @@
             <label>Descripción de plantilla</label>
             <input id="templateDescription" type="text" placeholder="Ej.: Tarifa base horeca 2026" />
           </div>
-          <div class="form-row">
-            <label>Estado</label>
-            <input id="templateStatus" type="text" disabled />
-          </div>
-          <div class="form-row">
-            <label>ID interno</label>
-            <input id="templateId" type="text" disabled />
-          </div>
         </div>
 
-        <div class="summary">
+        <div class="hidden">
+          <input id="templateStatus" type="text" disabled />
+          <input id="templateId" type="text" disabled />
+        </div>
+
+        <div class="summary" style="grid-template-columns: minmax(160px, 240px);">
           <div class="summary-item">
             <strong id="templateLineCount">0</strong>
             <span>Artículos</span>
           </div>
-          <div class="summary-item">
-            <strong id="templateAvgPrice">0,00 €</strong>
-            <span>Precio medio</span>
-          </div>
-          <div class="summary-item">
-            <strong id="templateMinPrice">0,00 €</strong>
-            <span>Precio mínimo</span>
-          </div>
-          <div class="summary-item">
-            <strong id="templateMaxPrice">0,00 €</strong>
-            <span>Precio máximo</span>
-          </div>
+        </div>
+
+        <div class="hidden">
+          <span id="templateAvgPrice">0,00 €</span>
+          <span id="templateMinPrice">0,00 €</span>
+          <span id="templateMaxPrice">0,00 €</span>
         </div>
 
         <div class="toolbar">
@@ -1543,7 +1534,7 @@
         showView("loginView");
       }
 
-      loginLog("APP Tarifas v6 inicializada.");
+      loginLog("APP Tarifas v7 inicializada.");
     }
 
     async function signIn() {
@@ -2198,26 +2189,20 @@
           <thead>
             <tr>
               <th></th>
-              <th>ID</th>
               <th>Descripción</th>
               <th>Artículos</th>
               <th>Fecha creación</th>
               <th>Última modificación</th>
-              <th>Estado</th>
-              <th>Archivo</th>
             </tr>
           </thead>
           <tbody>
             ${templates.map(t => `
               <tr class="${appState.selectedTemplateId === t.id ? "selected" : ""}" onclick="selectTemplate('${escapeHtml(t.id)}')">
                 <td><input type="radio" name="selectedTemplate" ${appState.selectedTemplateId === t.id ? "checked" : ""} /></td>
-                <td>${escapeHtml(t.id)}</td>
                 <td>${escapeHtml(t.descripcion)}</td>
                 <td>${(t.articulos || []).length}</td>
                 <td>${escapeHtml(t.fechaCreacion || "")}</td>
                 <td>${escapeHtml(t.fechaModificacion || "")}</td>
-                <td><span class="badge ${t.estado === "activa" ? "active" : "cancelled"}">${escapeHtml(t.estado || "activa")}</span></td>
-                <td>${escapeHtml(t._fileName || "")}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -2322,32 +2307,33 @@
           <thead>
             <tr>
               <th></th>
-              <th>ID</th>
               <th>Cliente</th>
               <th>Loc. envío</th>
               <th>Descripción</th>
               <th>Artículos</th>
-              <th>Origen</th>
               <th>Última modificación</th>
-              <th>Estado</th>
-              <th>Archivo</th>
+              <th>Origen</th>
             </tr>
           </thead>
           <tbody>
-            ${tarifas.map(t => `
+            ${tarifas.map(t => {
+              const origenTemplate = t.plantillaOrigenId
+                ? appState.templates.find(pl => pl.id === t.plantillaOrigenId)
+                : null;
+              const origenTexto = origenTemplate ? origenTemplate.descripcion || origenTemplate.id : "—";
+
+              return `
               <tr class="${appState.selectedTariffId === t.id ? "selected" : ""}" onclick="selectTariff('${escapeHtml(t.id)}')">
                 <td><input type="radio" name="selectedTariff" ${appState.selectedTariffId === t.id ? "checked" : ""} /></td>
-                <td>${escapeHtml(t.id)}</td>
                 <td>${escapeHtml(t.clienteNombre || "")}</td>
                 <td>${escapeHtml(t.locEnvio || "")}</td>
                 <td>${escapeHtml(t.descripcion || "")}</td>
                 <td>${(t.articulos || []).length}</td>
-                <td>${escapeHtml(t.plantillaOrigenId || "—")}</td>
                 <td>${escapeHtml(t.fechaModificacion || "")}</td>
-                <td><span class="badge ${t.estado === "activa" ? "active" : "cancelled"}">${escapeHtml(t.estado || "activa")}</span></td>
-                <td>${escapeHtml(t._fileName || "")}</td>
+                <td>${escapeHtml(origenTexto)}</td>
               </tr>
-            `).join("")}
+            `;
+            }).join("")}
           </tbody>
         </table>
         </div>
