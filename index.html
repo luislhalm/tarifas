@@ -1163,8 +1163,22 @@
       </div>
 
       <div class="form-row">
-        <label>Email del destinatario</label>
-        <input id="emailRecipientInput" type="email" placeholder="cliente@empresa.com" />
+        <label>Para</label>
+        <input id="emailRecipientInput" type="text" placeholder="cliente@empresa.com, otro@empresa.com" />
+      </div>
+
+      <div class="form-row" style="margin-top: 12px;">
+        <label>CC (opcional)</label>
+        <input id="emailCcInput" type="text" placeholder="copia@empresa.com" />
+      </div>
+
+      <div class="form-row" style="margin-top: 12px;">
+        <label>Mensaje</label>
+        <textarea id="emailMessageInput" style="min-height: 90px;"></textarea>
+      </div>
+
+      <div class="notice">
+        Varias direcciones se separan con comas. El mensaje se puede editar libremente.
       </div>
 
       <div class="toolbar">
@@ -2819,6 +2833,20 @@
 
     let pendingEmailAction = null; // "pdf" | "csv"
 
+    function parseEmailList(text) {
+      return String(text || "")
+        .split(/[,;]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    function defaultEmailMessage(kind, tariff) {
+      const clientePart = tariff.clienteNombre ? " para " + tariff.clienteNombre : "";
+      return kind === "pdf"
+        ? "Adjunto la tarifa en PDF" + clientePart + "."
+        : "Adjunto el CSV de la tarifa" + clientePart + ".";
+    }
+
     function openEmailModal(kind) {
       const tariff = getEditingTariff();
       if (!tariff || !tariff.articulos.length) {
@@ -2830,6 +2858,8 @@
       document.getElementById("emailModalTitle").textContent =
         kind === "pdf" ? "Enviar PDF por email" : "Enviar CSV por email";
       document.getElementById("emailRecipientInput").value = "";
+      document.getElementById("emailCcInput").value = "";
+      document.getElementById("emailMessageInput").value = defaultEmailMessage(kind, tariff);
       document.getElementById("emailModalBackdrop").classList.remove("hidden");
     }
 
@@ -2839,18 +2869,28 @@
     }
 
     async function confirmSendEmail() {
-      const email = document.getElementById("emailRecipientInput").value.trim();
+      const toList = parseEmailList(document.getElementById("emailRecipientInput").value);
+      const ccList = parseEmailList(document.getElementById("emailCcInput").value);
+      const message = document.getElementById("emailMessageInput").value.trim();
       const action = pendingEmailAction;
 
-      if (!email || !email.includes("@")) {
-        showToast("Introduzca un email válido.");
+      if (!toList.length) {
+        showToast("Introduzca al menos un email de destinatario en \"Para\".");
+        return;
+      }
+
+      const invalid = [...toList, ...ccList].find(addr => !addr.includes("@"));
+      if (invalid) {
+        showToast("Email no válido: " + invalid);
         return;
       }
 
       closeEmailModal();
 
-      if (action === "pdf") await generateTariffPdf(email);
-      else if (action === "csv") await generateTariffCsv(email);
+      const emailOptions = { to: toList, cc: ccList, message };
+
+      if (action === "pdf") await generateTariffPdf(emailOptions);
+      else if (action === "csv") await generateTariffCsv(emailOptions);
     }
 
     function openPercentageModal() {
@@ -2902,7 +2942,7 @@
       return String(codigo ?? "").trim().padStart(6, "0");
     }
 
-    async function generateTariffCsv(recipientEmail) {
+    async function generateTariffCsv(emailOptions) {
       const tariff = getEditingTariff();
       if (!tariff) return;
 
@@ -2932,19 +2972,20 @@
         appLog("CSV de tarifa generado: " + fileName);
         showToast("CSV guardado en SharePoint: " + fileName);
 
-        if (recipientEmail) {
+        if (emailOptions && emailOptions.to && emailOptions.to.length) {
           setLoadingState(true, "Enviando CSV por email...");
           await sendEmailWithAttachment({
-            to: recipientEmail,
+            to: emailOptions.to,
+            cc: emailOptions.cc,
             subject: "Tarifa" + (tariff.clienteNombre ? " - " + tariff.clienteNombre : ""),
-            bodyText: "Adjunto el CSV de la tarifa" + (tariff.clienteNombre ? " para " + tariff.clienteNombre : "") + ".",
+            bodyText: emailOptions.message || defaultEmailMessage("csv", tariff),
             attachmentContent: content,
             attachmentName: fileName,
             attachmentMimeType: "text/csv"
           });
           setLoadingState(false);
-          appLog("CSV de tarifa enviado por email a " + recipientEmail);
-          showToast("CSV enviado por email a " + recipientEmail);
+          appLog("CSV de tarifa enviado por email a " + emailOptions.to.join(", "));
+          showToast("CSV enviado por email a " + emailOptions.to.join(", "));
         }
       } catch (error) {
         setLoadingState(false);
@@ -3050,16 +3091,25 @@
       return btoa(unescape(encodeURIComponent(text)));
     }
 
-    async function sendEmailWithAttachment({ to, subject, bodyText, attachmentBlob, attachmentContent, attachmentName, attachmentMimeType }) {
+    async function sendEmailWithAttachment({ to, cc, subject, bodyText, attachmentBlob, attachmentContent, attachmentName, attachmentMimeType }) {
       const contentBytes = attachmentBlob
         ? await blobToBase64(attachmentBlob)
         : textToBase64Utf8(attachmentContent || "");
+
+      const toRecipients = (Array.isArray(to) ? to : [to])
+        .filter(Boolean)
+        .map(address => ({ emailAddress: { address } }));
+
+      const ccRecipients = (cc || [])
+        .filter(Boolean)
+        .map(address => ({ emailAddress: { address } }));
 
       const payload = {
         message: {
           subject,
           body: { contentType: "Text", content: bodyText },
-          toRecipients: [{ emailAddress: { address: to } }],
+          toRecipients,
+          ...(ccRecipients.length ? { ccRecipients } : {}),
           attachments: [{
             "@odata.type": "#microsoft.graph.fileAttachment",
             name: attachmentName,
@@ -3073,7 +3123,7 @@
       await graphPost("/me/sendMail", payload);
     }
 
-    async function generateTariffPdf(recipientEmail) {
+    async function generateTariffPdf(emailOptions) {
       const tariff = getEditingTariff();
       if (!tariff) return;
 
@@ -3208,19 +3258,20 @@
         appLog("PDF de tarifa generado: " + fileName);
         showToast("PDF guardado en SharePoint: " + fileName);
 
-        if (recipientEmail) {
+        if (emailOptions && emailOptions.to && emailOptions.to.length) {
           setLoadingState(true, "Enviando PDF por email...");
           await sendEmailWithAttachment({
-            to: recipientEmail,
+            to: emailOptions.to,
+            cc: emailOptions.cc,
             subject: "Tarifa" + (tariff.clienteNombre ? " - " + tariff.clienteNombre : ""),
-            bodyText: "Adjunto la tarifa en PDF" + (tariff.clienteNombre ? " para " + tariff.clienteNombre : "") + ".",
+            bodyText: emailOptions.message || defaultEmailMessage("pdf", tariff),
             attachmentBlob: blob,
             attachmentName: fileName,
             attachmentMimeType: "application/pdf"
           });
           setLoadingState(false);
-          appLog("PDF de tarifa enviado por email a " + recipientEmail);
-          showToast("PDF enviado por email a " + recipientEmail);
+          appLog("PDF de tarifa enviado por email a " + emailOptions.to.join(", "));
+          showToast("PDF enviado por email a " + emailOptions.to.join(", "));
         }
       } catch (error) {
         setLoadingState(false);
