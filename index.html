@@ -1314,11 +1314,25 @@
   </script>
 
   <script>
+    // Cada dominio donde está desplegada la app debe redirigir a sí mismo tras
+    // el login, no a una URL fija. Se mapea el origin actual a la URI exacta
+    // registrada en Entra ID para ese dominio (deben coincidir carácter a
+    // carácter con lo dado de alta como Redirect URI de tipo SPA).
+    function computeRedirectUri() {
+      const origin = window.location.origin;
+
+      if (origin.indexOf("grupolopezguillen.net") !== -1) {
+        return "https://www.grupolopezguillen.net/app/tarifas/";
+      }
+
+      return "https://luislhalm.github.io/tarifas/";
+    }
+
     const CONFIG = {
       clientId: "b82973ee-356a-4e73-b366-50d192267164",
       tenantId: "4af64d57-4be2-49ee-863f-1a7faee6e22b",
-      redirectUri: "https://www.grupolopezguillen.net/app/tarifas/",
-      postLogoutRedirectUri: "https://www.grupolopezguillen.net/app/tarifas/",
+      redirectUri: computeRedirectUri(),
+      postLogoutRedirectUri: computeRedirectUri(),
       graphBase: "https://graph.microsoft.com/v1.0",
       sharePointHost: "grupolopezguillensl.sharepoint.com",
       sitePath: "/sites/APPtarifas",
