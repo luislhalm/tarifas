@@ -1317,8 +1317,8 @@
     const CONFIG = {
       clientId: "b82973ee-356a-4e73-b366-50d192267164",
       tenantId: "4af64d57-4be2-49ee-863f-1a7faee6e22b",
-      redirectUri: "https://luislhalm.github.io/tarifas/",
-      postLogoutRedirectUri: "https://luislhalm.github.io/tarifas/",
+      redirectUri: "https://www.grupolopezguillen.net/app/tarifas/",
+      postLogoutRedirectUri: "https://www.grupolopezguillen.net/app/tarifas/",
       graphBase: "https://graph.microsoft.com/v1.0",
       sharePointHost: "grupolopezguillensl.sharepoint.com",
       sitePath: "/sites/APPtarifas",
@@ -1626,7 +1626,7 @@
       }
     }
 
-    async function graphRequest(method, path, payload, contentType = "application/json") {
+    async function graphRequest(method, path, payload, contentType = "application/json", extraHeaders = null) {
       const token = await getAccessToken();
       const url = path.startsWith("https://") ? path : CONFIG.graphBase + path;
 
@@ -1634,6 +1634,8 @@
         "Authorization": "Bearer " + token,
         "Accept": "application/json"
       };
+
+      if (extraHeaders) Object.assign(headers, extraHeaders);
 
       let body = undefined;
       if (payload !== undefined && payload !== null) {
@@ -1657,8 +1659,8 @@
       return parsed;
     }
 
-    async function graphGet(path) { return graphRequest("GET", path); }
-    async function graphPost(path, payload) { return graphRequest("POST", path, payload); }
+    async function graphGet(path, extraHeaders) { return graphRequest("GET", path, undefined, "application/json", extraHeaders); }
+    async function graphPost(path, payload, extraHeaders) { return graphRequest("POST", path, payload, "application/json", extraHeaders); }
     async function graphPutRaw(path, textPayload, contentType = "application/json; charset=utf-8") {
       return graphRequest("PUT", path, textPayload, contentType);
     }
@@ -1808,48 +1810,73 @@
       const file = graphState.masterFile;
       const base = dataDriveBase(drive) + "/items/" + encodeURIComponent(file.id) + "/workbook";
 
-      const tablesResponse = await graphGet(base + "/tables?$select=id,name,showHeaders,showTotals");
-      const tables = tablesResponse.value || [];
-      const table = tables.find(t => String(t.name).toLowerCase() === CONFIG.articleTableName.toLowerCase());
-
-      if (!table) throw new Error("No se encontró una tabla llamada " + CONFIG.articleTableName + " en Articulos.xlsx.");
-
-      const tablePath = base + "/tables('" + encodeURIComponent(table.name) + "')";
-      const [columnsResponse, rowsResponse] = await Promise.all([
-        graphGet(tablePath + "/columns"),
-        graphGet(tablePath + "/rows?$top=5000")
-      ]);
-
-      const headers = (columnsResponse.value || []).map(col => col.name);
-      const rows = rowsResponse.value || [];
-
-      graphState.articleHeaders = headers;
-
-      appLog("Tabla Excel encontrada: " + table.name);
-      appLog("Cabeceras detectadas: " + headers.join(" | "));
-      appLog("Filas devueltas por Graph: " + rows.length);
-
-      const parsed = rows.map((row, rowIndex) => {
-        const values = row.values?.[0] || [];
-        const item = {};
-        headers.forEach((header, index) => item[header] = values[index]);
-        return normalizeArticle(item, rowIndex);
-      });
-
-      graphState.articles = parsed.filter(a => {
-        const hasAnyData = Object.values(a.raw || {}).some(v => String(v ?? "").trim() !== "");
-        return hasAnyData;
-      });
-
-      document.getElementById("articlesLoadedCount").textContent = graphState.articles.length;
-      updateArticleMappingNotice(headers, graphState.articles);
-
-      if (graphState.articles.length > 0) {
-        const sample = graphState.articles[0];
-        appLog("Primer artículo normalizado: codigo='" + sample.codigo + "', descripcion='" + sample.descripcion + "'");
+      // Sesión de libro no persistente: evita que Graph tenga que abrir/parsear
+      // el Excel desde cero en cada llamada (tablas, columnas, filas), lo cual
+      // en libros grandes puede provocar errores intermitentes tipo
+      // "InternalError" o "MaxRequestDurationExceeded".
+      let sessionId = null;
+      try {
+        const session = await graphPost(base + "/createSession", { persistChanges: false });
+        sessionId = session.id;
+        appLog("Sesión de libro Excel creada.");
+      } catch (error) {
+        appLog("No se pudo crear sesión de libro Excel, se continúa sin sesión: " + error.message);
       }
 
-      appLog("Artículos cargados desde Excel: " + graphState.articles.length);
+      const sessionHeaders = sessionId ? { "workbook-session-id": sessionId } : null;
+
+      try {
+        const tablesResponse = await graphGet(base + "/tables?$select=id,name,showHeaders,showTotals", sessionHeaders);
+        const tables = tablesResponse.value || [];
+        const table = tables.find(t => String(t.name).toLowerCase() === CONFIG.articleTableName.toLowerCase());
+
+        if (!table) throw new Error("No se encontró una tabla llamada " + CONFIG.articleTableName + " en Articulos.xlsx.");
+
+        const tablePath = base + "/tables('" + encodeURIComponent(table.name) + "')";
+        const [columnsResponse, rowsResponse] = await Promise.all([
+          graphGet(tablePath + "/columns", sessionHeaders),
+          graphGet(tablePath + "/rows?$top=5000", sessionHeaders)
+        ]);
+
+        const headers = (columnsResponse.value || []).map(col => col.name);
+        const rows = rowsResponse.value || [];
+
+        graphState.articleHeaders = headers;
+
+        appLog("Tabla Excel encontrada: " + table.name);
+        appLog("Cabeceras detectadas: " + headers.join(" | "));
+        appLog("Filas devueltas por Graph: " + rows.length);
+
+        const parsed = rows.map((row, rowIndex) => {
+          const values = row.values?.[0] || [];
+          const item = {};
+          headers.forEach((header, index) => item[header] = values[index]);
+          return normalizeArticle(item, rowIndex);
+        });
+
+        graphState.articles = parsed.filter(a => {
+          const hasAnyData = Object.values(a.raw || {}).some(v => String(v ?? "").trim() !== "");
+          return hasAnyData;
+        });
+
+        document.getElementById("articlesLoadedCount").textContent = graphState.articles.length;
+        updateArticleMappingNotice(headers, graphState.articles);
+
+        if (graphState.articles.length > 0) {
+          const sample = graphState.articles[0];
+          appLog("Primer artículo normalizado: codigo='" + sample.codigo + "', descripcion='" + sample.descripcion + "'");
+        }
+
+        appLog("Artículos cargados desde Excel: " + graphState.articles.length);
+      } finally {
+        if (sessionId) {
+          try {
+            await graphPost(base + "/closeSession", null, { "workbook-session-id": sessionId });
+          } catch (closeError) {
+            appLog("No se pudo cerrar la sesión de libro Excel (no crítico): " + closeError.message);
+          }
+        }
+      }
     }
 
     function updateArticleMappingNotice(headers, articles) {
