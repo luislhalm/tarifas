@@ -1311,6 +1311,34 @@
 
       return true;
     }
+
+    // SheetJS: lee el .xlsx descargado en bruto directamente en el navegador,
+    // sin pasar por la API de "libro" de Excel de Graph (que requiere que el
+    // usuario tenga licencia de Office/SharePoint para la web). Descargar el
+    // archivo en bruto vía /content solo requiere permiso de lectura normal.
+    async function ensureSheetJsLoaded() {
+      if (window.XLSX) return true;
+
+      const sources = [
+        "https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
+        "https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"
+      ];
+
+      for (const src of sources) {
+        try {
+          await loadScript(src);
+          if (window.XLSX) {
+            appLog("SheetJS cargado desde: " + src);
+            return true;
+          }
+        } catch (error) {
+          appLog("Fallo cargando SheetJS desde: " + src);
+        }
+      }
+
+      return false;
+    }
   </script>
 
   <script>
@@ -1844,80 +1872,71 @@
       }
     }
 
+    // Lee las filas de la tabla en bloques pequeños en vez de pedirlas todas
+    // de golpe. Una tabla grande (miles de filas) en una única petición está
+    // al límite de lo que la API de Excel de Graph procesa de forma fiable;
+    // paginar reduce drásticamente el riesgo de errores tipo "InternalError"
+    // o "MaxRequestDurationExceeded", sobre todo para usuarios con algo más
+    // de latencia o cuando el servicio está más cargado.
     async function loadArticlesFromExcel() {
       const drive = await ensureDataDrive();
       if (!graphState.masterFile) await findMasterFile();
 
+      const librariesReady = await ensureSheetJsLoaded();
+      if (!librariesReady) {
+        throw new Error("No se pudo cargar la librería de lectura de Excel (SheetJS).");
+      }
+
       const file = graphState.masterFile;
-      const base = dataDriveBase(drive) + "/items/" + encodeURIComponent(file.id) + "/workbook";
+      const token = await getAccessToken();
+      const url = CONFIG.graphBase + dataDriveBase(drive) + "/items/" + encodeURIComponent(file.id) + "/content";
 
-      // Sesión de libro no persistente: evita que Graph tenga que abrir/parsear
-      // el Excel desde cero en cada llamada (tablas, columnas, filas), lo cual
-      // en libros grandes puede provocar errores intermitentes tipo
-      // "InternalError" o "MaxRequestDurationExceeded".
-      let sessionId = null;
-      try {
-        const session = await graphPost(base + "/createSession", { persistChanges: false });
-        sessionId = session.id;
-        appLog("Sesión de libro Excel creada.");
-      } catch (error) {
-        appLog("No se pudo crear sesión de libro Excel, se continúa sin sesión: " + error.message);
+      const response = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
+      if (!response.ok) throw new Error("No se pudo descargar Articulos.xlsx: HTTP " + response.status);
+
+      const arrayBuffer = await response.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+
+      // Se prioriza una hoja cuyo nombre coincida con la tabla ("Articulos");
+      // si no existe, se usa la primera hoja del libro.
+      let sheetName = workbook.SheetNames.find(name => name.toLowerCase() === CONFIG.articleTableName.toLowerCase());
+      if (!sheetName) sheetName = workbook.SheetNames[0];
+
+      const worksheet = workbook.Sheets[sheetName];
+      if (!worksheet) throw new Error("No se pudo leer la hoja \"" + sheetName + "\" de Articulos.xlsx.");
+
+      const rows2d = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+      if (!rows2d.length) throw new Error("La hoja \"" + sheetName + "\" está vacía.");
+
+      const headers = rows2d[0].map(h => String(h ?? "").trim());
+      const dataRows = rows2d.slice(1);
+
+      graphState.articleHeaders = headers;
+
+      appLog("Excel leído directamente en el navegador (SheetJS), hoja: " + sheetName);
+      appLog("Cabeceras detectadas: " + headers.join(" | "));
+      appLog("Filas leídas: " + dataRows.length);
+
+      const parsed = dataRows.map((rowArray, rowIndex) => {
+        const item = {};
+        headers.forEach((header, index) => item[header] = rowArray[index]);
+        return normalizeArticle(item, rowIndex);
+      });
+
+      graphState.articles = parsed.filter(a => {
+        const hasAnyData = Object.values(a.raw || {}).some(v => String(v ?? "").trim() !== "");
+        return hasAnyData;
+      });
+
+      document.getElementById("articlesLoadedCount").textContent = graphState.articles.length;
+      updateArticleMappingNotice(headers, graphState.articles);
+
+      if (graphState.articles.length > 0) {
+        const sample = graphState.articles[0];
+        appLog("Primer artículo normalizado: codigo='" + sample.codigo + "', descripcion='" + sample.descripcion + "'");
       }
 
-      const sessionHeaders = sessionId ? { "workbook-session-id": sessionId } : null;
-
-      try {
-        const tablesResponse = await graphGetWithRetry(base + "/tables?$select=id,name,showHeaders,showTotals", sessionHeaders);
-        const tables = tablesResponse.value || [];
-        const table = tables.find(t => String(t.name).toLowerCase() === CONFIG.articleTableName.toLowerCase());
-
-        if (!table) throw new Error("No se encontró una tabla llamada " + CONFIG.articleTableName + " en Articulos.xlsx.");
-
-        const tablePath = base + "/tables('" + encodeURIComponent(table.name) + "')";
-        const [columnsResponse, rowsResponse] = await Promise.all([
-          graphGetWithRetry(tablePath + "/columns", sessionHeaders),
-          graphGetWithRetry(tablePath + "/rows?$top=5000", sessionHeaders)
-        ]);
-
-        const headers = (columnsResponse.value || []).map(col => col.name);
-        const rows = rowsResponse.value || [];
-
-        graphState.articleHeaders = headers;
-
-        appLog("Tabla Excel encontrada: " + table.name);
-        appLog("Cabeceras detectadas: " + headers.join(" | "));
-        appLog("Filas devueltas por Graph: " + rows.length);
-
-        const parsed = rows.map((row, rowIndex) => {
-          const values = row.values?.[0] || [];
-          const item = {};
-          headers.forEach((header, index) => item[header] = values[index]);
-          return normalizeArticle(item, rowIndex);
-        });
-
-        graphState.articles = parsed.filter(a => {
-          const hasAnyData = Object.values(a.raw || {}).some(v => String(v ?? "").trim() !== "");
-          return hasAnyData;
-        });
-
-        document.getElementById("articlesLoadedCount").textContent = graphState.articles.length;
-        updateArticleMappingNotice(headers, graphState.articles);
-
-        if (graphState.articles.length > 0) {
-          const sample = graphState.articles[0];
-          appLog("Primer artículo normalizado: codigo='" + sample.codigo + "', descripcion='" + sample.descripcion + "'");
-        }
-
-        appLog("Artículos cargados desde Excel: " + graphState.articles.length);
-      } finally {
-        if (sessionId) {
-          try {
-            await graphPost(base + "/closeSession", null, { "workbook-session-id": sessionId });
-          } catch (closeError) {
-            appLog("No se pudo cerrar la sesión de libro Excel (no crítico): " + closeError.message);
-          }
-        }
-      }
+      appLog("Artículos cargados desde Excel: " + graphState.articles.length);
     }
 
     function updateArticleMappingNotice(headers, articles) {
