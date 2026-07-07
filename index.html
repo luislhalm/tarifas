@@ -1929,8 +1929,34 @@
         );
       }
 
-      const headers = rows2d[0].map(h => String(h ?? "").trim());
-      const dataRows = rows2d.slice(1);
+      // Algunas hojas (sobre todo si la tabla está conectada a Power Query)
+      // tienen filas de título/comentario por encima de la cabecera real
+      // (ej. "Datos devueltos para ...", con una sola celda rellena). Se
+      // busca, dentro de las primeras filas, la que tenga más celdas con
+      // contenido: esa es la cabecera real, no necesariamente la fila 1.
+      function findHeaderRowIndex(rows, maxScan) {
+        let bestIndex = 0;
+        let bestCount = -1;
+        const scanLimit = Math.min(maxScan, rows.length);
+
+        for (let i = 0; i < scanLimit; i++) {
+          const nonEmptyCount = rows[i].filter(cell => String(cell ?? "").trim() !== "").length;
+          if (nonEmptyCount > bestCount) {
+            bestCount = nonEmptyCount;
+            bestIndex = i;
+          }
+        }
+
+        return bestIndex;
+      }
+
+      const headerRowIndex = findHeaderRowIndex(rows2d, 10);
+      if (headerRowIndex > 0) {
+        appLog("Se detectaron " + headerRowIndex + " fila(s) de título antes de la cabecera real (fila " + (headerRowIndex + 1) + ").");
+      }
+
+      const headers = rows2d[headerRowIndex].map(h => String(h ?? "").trim());
+      const dataRows = rows2d.slice(headerRowIndex + 1);
 
       graphState.articleHeaders = headers;
 
