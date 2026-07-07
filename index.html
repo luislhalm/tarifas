@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
-  <title>APP Tarifas v7</title>
+  <title>APP Tarifas v8</title>
 
   <style>
     :root {
@@ -667,7 +667,7 @@
 
 <body>
   <header>
-    <h1>APP Tarifas v7</h1>
+    <h1>APP Tarifas v8</h1>
     <div class="user-box">
       <span id="currentUserLabel">No autenticado</span>
       <button id="logoutBtn" class="small ghost hidden" onclick="signOut()">Cerrar sesión</button>
@@ -704,7 +704,7 @@
 
       <div class="card hidden" id="loginDetailsPanel">
         <div class="notice">
-          Versión v7 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
+          Versión v8 real en un único HTML. Guarda plantillas como archivos JSON en SharePoint, dentro de la carpeta del usuario.
           En móvil, abra esta página directamente en Safari, Edge o Chrome. No la abra desde una previsualización embebida.
         </div>
 
@@ -1365,7 +1365,9 @@
     function appLog(message) {
       const output = document.getElementById("appLog");
       if (!output) return;
-      const line = "[" + new Date().toLocaleTimeString("es-ES") + "] " + message;
+      const now = new Date();
+      const ms = String(now.getMilliseconds()).padStart(3, "0");
+      const line = "[" + now.toLocaleTimeString("es-ES") + "." + ms + "] " + message;
       output.textContent = line + "\n" + output.textContent;
     }
 
@@ -1534,7 +1536,7 @@
         showView("loginView");
       }
 
-      loginLog("APP Tarifas v7 inicializada.");
+      loginLog("APP Tarifas v8 inicializada.");
     }
 
     async function signIn() {
@@ -1660,6 +1662,31 @@
     }
 
     async function graphGet(path, extraHeaders) { return graphRequest("GET", path, undefined, "application/json", extraHeaders); }
+
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Reintenta una lectura de Graph ante errores transitorios del backend de
+    // Microsoft (ej. "InternalError: Sorry, something went wrong.",
+    // "MaxRequestDurationExceeded"). No es un problema de permisos ni de red
+    // del usuario, sino de disponibilidad puntual del servicio; reintentar
+    // con una breve espera suele resolverlo sin que el usuario note nada.
+    async function graphGetWithRetry(path, extraHeaders, attempts = 3) {
+      let lastError;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          return await graphGet(path, extraHeaders);
+        } catch (error) {
+          lastError = error;
+          appLog("Graph GET falló (intento " + (i + 1) + "/" + attempts + ") en " + path + ": " + error.message);
+          if (i < attempts - 1) {
+            await delay(600 * (i + 1));
+          }
+        }
+      }
+      throw lastError;
+    }
     async function graphPost(path, payload, extraHeaders) { return graphRequest("POST", path, payload, "application/json", extraHeaders); }
     async function graphPutRaw(path, textPayload, contentType = "application/json; charset=utf-8") {
       return graphRequest("PUT", path, textPayload, contentType);
@@ -1667,7 +1694,7 @@
 
     async function loadSite() {
       const graphPath = "/sites/" + encodeURIComponent(CONFIG.sharePointHost) + ":" + CONFIG.sitePath;
-      graphState.site = await graphGet(graphPath);
+      graphState.site = await graphGetWithRetry(graphPath);
       document.getElementById("siteStatus").textContent = "OK";
       appLog("Site cargado: " + graphState.site.displayName);
       return graphState.site;
@@ -1685,7 +1712,7 @@
     async function getDriveRoot() {
       if (graphState.driveRoot) return graphState.driveRoot;
       const site = await ensureSite();
-      graphState.driveRoot = await graphGet("/sites/" + encodeURIComponent(site.id) + "/drive/root");
+      graphState.driveRoot = await graphGetWithRetry("/sites/" + encodeURIComponent(site.id) + "/drive/root");
       return graphState.driveRoot;
     }
 
@@ -1698,7 +1725,7 @@
       if (graphState.dataDrive) return graphState.dataDrive;
 
       const site = await ensureSite();
-      const response = await graphGet("/sites/" + encodeURIComponent(site.id) + "/drives");
+      const response = await graphGetWithRetry("/sites/" + encodeURIComponent(site.id) + "/drives");
       const drives = response.value || [];
       const match = drives.find(d => String(d.name).toLowerCase() === CONFIG.dataLibraryName.toLowerCase());
 
@@ -1790,11 +1817,11 @@
       const drive = await ensureDataDrive();
 
       try {
-        graphState.masterFile = await graphGet(dataDriveBase(drive) + "/root:/" + encodeGraphPath(CONFIG.masterFileName));
+        graphState.masterFile = await graphGetWithRetry(dataDriveBase(drive) + "/root:/" + encodeGraphPath(CONFIG.masterFileName));
         return graphState.masterFile;
       } catch (errorByPath) {
         const searchQuery = CONFIG.masterFileName.replaceAll("'", "''");
-        const searchResult = await graphGet(dataDriveBase(drive) + "/root/search(q='" + encodeURIComponent(searchQuery) + "')");
+        const searchResult = await graphGetWithRetry(dataDriveBase(drive) + "/root/search(q='" + encodeURIComponent(searchQuery) + "')");
         const candidates = searchResult.value || [];
         const exact = candidates.find(item => item.name === CONFIG.masterFileName) || candidates[0];
         if (!exact) throw new Error("No se encontró " + CONFIG.masterFileName + " en la biblioteca \"" + CONFIG.dataLibraryName + "\"");
@@ -1826,7 +1853,7 @@
       const sessionHeaders = sessionId ? { "workbook-session-id": sessionId } : null;
 
       try {
-        const tablesResponse = await graphGet(base + "/tables?$select=id,name,showHeaders,showTotals", sessionHeaders);
+        const tablesResponse = await graphGetWithRetry(base + "/tables?$select=id,name,showHeaders,showTotals", sessionHeaders);
         const tables = tablesResponse.value || [];
         const table = tables.find(t => String(t.name).toLowerCase() === CONFIG.articleTableName.toLowerCase());
 
@@ -1834,8 +1861,8 @@
 
         const tablePath = base + "/tables('" + encodeURIComponent(table.name) + "')";
         const [columnsResponse, rowsResponse] = await Promise.all([
-          graphGet(tablePath + "/columns", sessionHeaders),
-          graphGet(tablePath + "/rows?$top=5000", sessionHeaders)
+          graphGetWithRetry(tablePath + "/columns", sessionHeaders),
+          graphGetWithRetry(tablePath + "/rows?$top=5000", sessionHeaders)
         ]);
 
         const headers = (columnsResponse.value || []).map(col => col.name);
@@ -2006,16 +2033,35 @@
         await ensureSite();
         await ensureUserFolders();
 
-        // Artículos, plantillas y tarifas son independientes entre sí:
-        // se cargan en paralelo en lugar de uno detrás de otro.
-        await Promise.all([
-          loadArticlesFromExcel(),
-          loadTemplatesFromSharePoint(),
-          loadTariffsFromSharePoint()
-        ]);
+        // Artículos, plantillas y tarifas son independientes entre sí: se cargan
+        // en paralelo. Se usa allSettled (en vez de Promise.all) para poder
+        // identificar exactamente cuál de las tres falla, en vez de un único
+        // error genérico que oculta el origen real del problema.
+        const tasks = [
+          { name: "Artículos (Excel)", promise: loadArticlesFromExcel() },
+          { name: "Plantillas", promise: loadTemplatesFromSharePoint() },
+          { name: "Tarifas", promise: loadTariffsFromSharePoint() }
+        ];
+
+        const results = await Promise.allSettled(tasks.map(t => t.promise));
+
+        const failedNames = [];
+        results.forEach((result, index) => {
+          if (result.status === "rejected") {
+            const task = tasks[index];
+            const reason = result.reason?.message || String(result.reason);
+            appLog("FALLO en \"" + task.name + "\": " + reason);
+            failedNames.push(task.name);
+          }
+        });
 
         setLoadingState(false);
-        showToast("Datos iniciales cargados.");
+
+        if (failedNames.length) {
+          showToast("Fallo cargando: " + failedNames.join(", ") + ". Revisa el registro técnico y pulsa Reintentar carga.");
+        } else {
+          showToast("Datos iniciales cargados.");
+        }
       } catch (error) {
         setLoadingState(false);
         logError("Error preparando datos iniciales", error);
@@ -3042,8 +3088,8 @@
 
       try {
         const drive = await ensureDataDrive();
-        const folder = await graphGet(dataDriveBase(drive) + "/root:/" + encodeGraphPath(CONFIG.imagesFolderName));
-        const response = await graphGet(dataDriveBase(drive) + "/items/" + encodeURIComponent(folder.id) + "/children?$top=999");
+        const folder = await graphGetWithRetry(dataDriveBase(drive) + "/root:/" + encodeGraphPath(CONFIG.imagesFolderName));
+        const response = await graphGetWithRetry(dataDriveBase(drive) + "/items/" + encodeURIComponent(folder.id) + "/children?$top=999");
         const files = (response.value || []).filter(item => item.file);
         files.forEach(file => { index[normalizeImageKey(file.name)] = file; });
         appLog("Índice de imágenes de artículos cargado: " + files.length + " archivo(s).");
