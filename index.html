@@ -1896,17 +1896,38 @@
 
       const arrayBuffer = await response.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      appLog("Hojas detectadas en Articulos.xlsx: " + workbook.SheetNames.join(", "));
 
-      // Se prioriza una hoja cuyo nombre coincida con la tabla ("Articulos");
-      // si no existe, se usa la primera hoja del libro.
-      let sheetName = workbook.SheetNames.find(name => name.toLowerCase() === CONFIG.articleTableName.toLowerCase());
-      if (!sheetName) sheetName = workbook.SheetNames[0];
+      // El nombre de la hoja y el nombre de la tabla estructurada de Excel
+      // son cosas distintas (una hoja "Hoja1" puede contener una tabla
+      // llamada "Articulos"). En vez de adivinar por nombre, se recorren
+      // todas las hojas del libro y se usa la primera que tenga contenido
+      // real (cabecera + al menos una fila), priorizando una hoja cuyo
+      // nombre coincida con el de la tabla si existiera.
+      const preferredNames = workbook.SheetNames.filter(name => name.toLowerCase() === CONFIG.articleTableName.toLowerCase());
+      const orderedSheetNames = preferredNames.concat(workbook.SheetNames.filter(name => !preferredNames.includes(name)));
 
-      const worksheet = workbook.Sheets[sheetName];
-      if (!worksheet) throw new Error("No se pudo leer la hoja \"" + sheetName + "\" de Articulos.xlsx.");
+      let sheetName = null;
+      let rows2d = null;
 
-      const rows2d = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-      if (!rows2d.length) throw new Error("La hoja \"" + sheetName + "\" está vacía.");
+      for (const name of orderedSheetNames) {
+        const candidateSheet = workbook.Sheets[name];
+        if (!candidateSheet) continue;
+
+        const candidateRows = XLSX.utils.sheet_to_json(candidateSheet, { header: 1, defval: "" });
+        if (candidateRows.length > 1) {
+          sheetName = name;
+          rows2d = candidateRows;
+          break;
+        }
+      }
+
+      if (!sheetName) {
+        throw new Error(
+          "No se encontró ninguna hoja con datos en Articulos.xlsx (hojas revisadas: " +
+          workbook.SheetNames.join(", ") + ")"
+        );
+      }
 
       const headers = rows2d[0].map(h => String(h ?? "").trim());
       const dataRows = rows2d.slice(1);
