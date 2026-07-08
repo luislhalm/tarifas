@@ -3349,7 +3349,8 @@
               // proporción real (como "object-fit: contain"), en vez de forzar
               // un cuadrado exacto que deforma las fotos que no son cuadradas.
               const props = doc.getImageProperties(dataUrl);
-              const aspect = props.width / props.height;
+              let aspect = props.width && props.height ? props.width / props.height : 1;
+              if (!isFinite(aspect) || aspect <= 0) aspect = 1;
 
               let drawWidth = IMG_SIZE;
               let drawHeight = IMG_SIZE;
@@ -3359,6 +3360,12 @@
               } else {
                 drawWidth = IMG_SIZE * aspect;
               }
+
+              // Salvaguarda: la imagen puede salir más pequeña que el hueco
+              // (para respetar su proporción), pero nunca más grande,
+              // pase lo que pase con el cálculo anterior.
+              drawWidth = Math.min(drawWidth, IMG_SIZE);
+              drawHeight = Math.min(drawHeight, IMG_SIZE);
 
               const x = data.cell.x + (data.cell.width - drawWidth) / 2;
               const yImg = data.cell.y + (data.cell.height - drawHeight) / 2;
