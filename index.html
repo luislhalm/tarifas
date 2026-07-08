@@ -3344,11 +3344,26 @@
             const dataUrl = linea ? imagesByCode[String(linea.codigo)] : null;
             if (!dataUrl) return;
 
-            const x = data.cell.x + (data.cell.width - IMG_SIZE) / 2;
-            const yImg = data.cell.y + (data.cell.height - IMG_SIZE) / 2;
-
             try {
-              doc.addImage(dataUrl, jsPdfImageFormat(dataUrl), x, yImg, IMG_SIZE, IMG_SIZE);
+              // Se ajusta la imagen dentro del hueco disponible manteniendo su
+              // proporción real (como "object-fit: contain"), en vez de forzar
+              // un cuadrado exacto que deforma las fotos que no son cuadradas.
+              const props = doc.getImageProperties(dataUrl);
+              const aspect = props.width / props.height;
+
+              let drawWidth = IMG_SIZE;
+              let drawHeight = IMG_SIZE;
+
+              if (aspect >= 1) {
+                drawHeight = IMG_SIZE / aspect;
+              } else {
+                drawWidth = IMG_SIZE * aspect;
+              }
+
+              const x = data.cell.x + (data.cell.width - drawWidth) / 2;
+              const yImg = data.cell.y + (data.cell.height - drawHeight) / 2;
+
+              doc.addImage(dataUrl, jsPdfImageFormat(dataUrl), x, yImg, drawWidth, drawHeight);
             } catch (imgError) {
               appLog("No se pudo insertar la imagen del artículo " + linea.codigo + ": " + imgError.message);
             }
